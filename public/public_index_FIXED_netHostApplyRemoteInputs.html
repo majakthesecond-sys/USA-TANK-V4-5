@@ -1,0 +1,3281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>USA Tank Battle (HTML Game)</title>
+  <style>
+    :root { --bg:#0b0f14; --panel:#111a24; --panel2:#0f1620; --txt:#e8eef7; --muted:#9fb0c7; --good:#52ff9a; --bad:#ff5a6a; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; overflow:hidden; }
+    #wrap { position:fixed; inset:0; display:flex; }
+    #left { width:360px; min-width:320px; max-width:420px; background:linear-gradient(180deg,var(--panel),var(--panel2)); border-right:1px solid rgba(255,255,255,.08); padding:14px; box-sizing:border-box; overflow:auto; }
+    #game { flex:1; position:relative; }
+    canvas { width:100%; height:100%; display:block; background:#0d1219; }
+    h1 { margin:6px 0 10px; font-size:18px; }
+    h2 { margin:16px 0 8px; font-size:13px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+    .row { display:flex; gap:10px; }
+    .row > * { flex:1; }
+    .card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    select, button, input[type="range"] {
+      width:100%; border-radius:10px; border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.25); color:var(--txt); padding:10px; box-sizing:border-box;
+      outline:none;
+    }
+    button { cursor:pointer; font-weight:700; background:rgba(82,255,154,.12); border-color:rgba(82,255,154,.35); }
+    button:hover { background:rgba(82,255,154,.18); }
+    .btn2 { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.12); }
+    .btn2:hover { background:rgba(255,255,255,.10); }
+    .tiny { font-size:12px; color:var(--muted); line-height:1.35; }
+    .kbd { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; padding:2px 6px; border:1px solid rgba(255,255,255,.18); border-radius:7px; background:rgba(255,255,255,.06); }
+    #hud {
+      position:absolute; left:10px; top:10px; right:10px; pointer-events:none;
+      display:flex; justify-content:space-between; gap:10px;
+    }
+    .hudBox {
+      pointer-events:none;
+      background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.10);
+      border-radius:12px; padding:10px; backdrop-filter: blur(6px);
+      min-width:220px;
+    }
+    #centerMsg {
+      position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none;
+      text-align:center; padding:20px;
+    }
+    #centerMsg .inner { max-width:520px; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:18px; }
+    .bar { height:10px; border-radius:999px; background:rgba(255,255,255,.10); overflow:hidden; border:1px solid rgba(255,255,255,.10); }
+    .bar > i { display:block; height:100%; width:50%; background:linear-gradient(90deg,var(--good), #6bd1ff); }
+    .bar.red > i { background:linear-gradient(90deg,var(--bad), #ffb45a); }
+    #mini {
+      position:absolute; right:10px; bottom:10px; width:200px; height:200px;
+      background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.10);
+      border-radius:12px; overflow:hidden; backdrop-filter: blur(6px);
+    }
+    #mini canvas { width:100%; height:100%; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); font-size:12px; color:var(--muted); }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .sep { height:1px; background:rgba(255,255,255,.08); margin:10px 0; }
+  
+    /* ===== GAME OVERLAYS ===== */
+    #menuOverlay, #loadingOverlay, #countdownOverlay{
+      position:fixed; inset:0; z-index:99998; display:none;
+      align-items:center; justify-content:center;
+      background: radial-gradient(1200px 700px at 50% 30%, rgba(40,70,120,.55), rgba(0,0,0,.78));
+      backdrop-filter: blur(8px);
+    }
+    .overlayCard{
+      width:min(980px, calc(100vw - 40px));
+      max-height: calc(100vh - 40px);
+      overflow:auto;
+      border-radius: 22px;
+      background: rgba(12,18,26,.78);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      padding: 18px;
+    }
+    .logo{
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      font-size: 28px;
+      margin: 4px 0 10px;
+    }
+    .logo small{ display:block; font-size:12px; opacity:.8; margin-top:6px; font-weight:700; letter-spacing:.18em; }
+    .bigBtn{
+      appearance:none; border:0; cursor:pointer;
+      border-radius: 18px;
+      padding: 14px 18px;
+      font-weight:900; letter-spacing:.05em;
+      color:#061016;
+      background: linear-gradient(135deg, rgba(82,255,154,1), rgba(120,220,255,1));
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      transition: transform .08s ease, filter .08s ease;
+    }
+    .bigBtn:hover{ transform: translateY(-1px); filter: brightness(1.05); }
+    .bigBtn:active{ transform: translateY(1px); filter: brightness(.98); }
+    .ghostBtn{
+      appearance:none; cursor:pointer;
+      border-radius: 14px; padding: 10px 12px;
+      color: var(--txt);
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .hudTopLeft{
+      position:fixed; right:12px; top:78px; z-index:9997;
+      left:auto;
+      display:none;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(6px);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 8px 10px;
+      font: 12px/1.25 system-ui, Segoe UI, Roboto, Arial;
+      min-width: 190px;
+    }
+    .bar{ height:12px; border-radius:999px; background: rgba(255,255,255,.10); overflow:hidden; border:1px solid rgba(255,255,255,.10); }
+    .bar > div{ height:100%; width:0%; background: linear-gradient(90deg, rgba(120,220,255,1), rgba(82,255,154,1)); }
+    .tip{ font-size:12px; opacity:.85; margin-top:10px; }
+    .countNum{
+      font-weight:900;
+      font-size: 64px;
+      letter-spacing:.06em;
+      text-shadow: 0 10px 40px rgba(0,0,0,.45);
+    }
+    .countSub{ margin-top:6px; font-size: 14px; opacity:.85; letter-spacing:.10em; text-transform:uppercase; }
+    /* hide left panel in battle for "real game" feel */
+    body.battle #left{ display:none; }
+    body.battle #wrap{ inset:0; }
+    body.battle #game{ width:100%; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside id="left">
+    <h1>USA Tank Battle — HTML Game</h1>
+    <div class="tiny">
+      Pick a <b>USA tank</b>, choose a <b>map</b> and <b>mode</b>, then hit <b>Start</b>.
+      <div class="sep"></div>
+      Controls:
+      <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
+        <span class="kbd">WASD / Arrows</span>
+        <span class="kbd">Mouse = Aim</span>
+        <span class="kbd">Click / Space = Shoot</span>
+        <span class="kbd">Shift = Boost</span>
+        <span class="kbd">R = Respawn (Training)</span>
+        <span class="kbd">Esc = Pause</span>
+        <span class="kbd">P2: IJKL Move</span>
+        <span class="kbd">P2: U/O Aim</span>
+        <span class="kbd">P2: P Shoot</span>
+        <span class="kbd">P2: Hold H Auto-aim</span>
+      </div>
+    </div>
+
+    <h2>Tank Choice (USA roster)</h2>
+    <div class="card">
+      
+      <div class="row" style="justify-content:space-between;align-items:center; margin-bottom:10px;">
+        <div class="tiny"><b>Coins:</b> <span id="coinLbl">0</span></div>
+        <div class="tiny" id="ownedLbl" style="opacity:.9;"></div>
+      </div>
+<label for="tankSel">Tank</label>
+      <select id="tankSel"></select>
+
+      <div class="grid2" style="margin-top:10px;">
+        <div>
+          <label for="tierSel">Tier Filter</label>
+          <select id="tierSel">
+            <option value="ALL">ALL</option>
+            <option value="1">Tier 1 – Early/WWII</option>
+            <option value="2">Tier 2 – WWII</option>
+            <option value="3">Tier 3 – Cold War</option>
+            <option value="4">Tier 4 – Modern</option>
+          </select>
+        </div>
+        <div>
+          <label for="classSel">Class Filter</label>
+          <select id="classSel">
+            <option value="ALL">ALL</option>
+            <option value="Light">Light</option>
+            <option value="Medium">Medium</option>
+            <option value="Heavy">Heavy</option>
+            <option value="TD">Tank Destroyer</option>
+            <option value="SPG">SPG / Artillery</option>
+          </select>
+        </div>
+      </div>
+
+      
+      <div class="row" style="justify-content:flex-end; gap:10px; margin-top:10px;">
+        <button id="buyBtn" class="btn2" style="display:none;">Buy</button>
+      </div>
+<div class="sep"></div>
+      <div id="tankStats" class="tiny"></div>
+    </div>
+
+    <h2>Map & Mode</h2>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="mapSel">Map (lots of maps)</label>
+          <select id="mapSel"></select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label for="modeSel">Mode</label>
+          <select id="modeSel">
+            <option value="TDM">Team Deathmatch (Player vs AI)</option>
+            <option value="CAPTURE">Capture the Base</option>
+            <option value="DOM">Domination Zones</option>
+            <option value="HISTORICAL">Historical Battles (Tier-locked)</option>
+            <option value="RANKED">Ranked (Harder AI)</option>
+            <option value="TRAINING">Training / Sandbox</option>
+            <option value="FREEROAM">Free Roam (Explore)</option>
+                      <option value="PVP1V1">1v1 Player Mode (Local)</option>
+                      <option value="ONLINE1V1">Online 1v1 (WebSocket)</option>
+            <option value="ONLINE2V2">Online 2v2 (WebSocket)</option>
+            <option value="ONLINEPVP">Online PvP (2-6 players, auto-balance)</option>                      <option value="COOP">Co-op (You + AI Ally vs AI)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label for="userNameInp">Username (Online)</label>
+          <input id="userNameInp" type="text" maxlength="16" placeholder="Enter name (e.g., Richard)" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.35); color:#e9f1ff;">
+          <div style="font-size:12px; opacity:.8; margin-top:6px;">Used in Online modes (1v1, 2v2, 1v1v1).</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label for="texSel">Texture Theme</label>Texture Theme</label>
+          <select id="texSel">
+            <option value="HIST">Historical</option>
+            <option value="FOREST">Forest</option>
+            <option value="DESERT">Desert</option>
+            <option value="WINTER">Winter</option>
+            <option value="URBAN">Urban</option>
+            <option value="TOY">Toy / Neon</option>
+          </select>
+        </div>
+      </div>
+
+
+      <div class="grid2" style="margin-top:10px;">
+        <div>
+          <label for="aiCount">Enemy Count</label>
+          <select id="aiCount">
+            <option>3</option><option selected>6</option><option>10</option><option>14</option>
+          </select>
+        </div>
+        <div>
+          <label for="difficulty">Difficulty</label>
+          <select id="difficulty">
+            <option value="EASY">Easy</option>
+            <option value="NORMAL" selected>Normal</option>
+            <option value="HARD">Hard</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="row">
+        <button id="startBtn">Start Game</button>
+        <button id="resetBtn" class="btn2">Reset</button>
+</div>
+    </div>
+
+    <h2>Tip</h2>
+    <div class="card tiny">
+      Armor & shells are simplified but fun:
+      <ul style="margin:8px 0 0; padding-left:18px;">
+        <li><b>AP</b> = steady damage</li>
+        <li><b>HE</b> = splash damage (good vs light tanks)</li>
+        <li><b>HEAT</b> = strong vs armor, slower</li>
+        <li><b>APFSDS</b> = fastest + best penetration (modern)</li>
+      </ul>
+      <div style="margin-top:8px;">
+        Win by objective (mode) or destroy all enemies.
+      </div>
+    </div>
+  </aside>
+
+  <main id="game">
+    <canvas id="c"></canvas>
+
+    <div id="hud">
+      <div class="hudBox" id="hudLeft">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div id="hudTank" style="font-weight:800;">—</div>
+            <div class="tiny" id="hudMeta">—</div>
+          </div>
+          <div class="pill" id="hudMode">—</div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="tiny" style="display:flex; justify-content:space-between;">
+            <span>HP</span><span id="hudHP">—</span>
+          </div>
+          <div class="bar"><i id="hpBar"></i></div>
+
+          <div class="tiny" style="display:flex; justify-content:space-between; margin-top:8px;">
+            <span>Reload</span><span id="hudReload">—</span>
+          </div>
+          <div class="bar red"><i id="rlBar"></i></div>
+        </div>
+      </div>
+
+      <div class="hudBox" id="hudRight" style="min-width:260px;">
+        <div style="display:flex; justify-content:space-between;">
+          <div><b>Score</b></div>
+          <div class="pill" id="hudTime">00:00</div>
+        </div>
+        <div class="tiny" id="hudObj" style="margin-top:8px;">—</div>
+        <div class="sep"></div>
+        <div class="tiny">
+          <div style="display:flex; justify-content:space-between;"><span>You</span><span id="hudYou">0</span></div>
+          <div style="display:flex; justify-content:space-between;"><span>Enemies</span><span id="hudEnemies">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="mini"><canvas id="mc"></canvas></div>
+
+    <div id="centerMsg">
+      <div class="inner">
+        <div id="msgTitle" style="font-weight:900; font-size:20px;">Paused</div>
+        <div id="msgBody" class="tiny" style="margin-top:10px;">Press <span class="kbd">Esc</span> to resume.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+
+// ===== On-screen error reporter (for debugging) =====
+(function(){
+  function showErr(msg){
+    let box = document.getElementById("onerrorOverlay");
+    if(!box){
+      box = document.createElement("div");
+      box.id = "onerrorOverlay";
+      box.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:100000;background:rgba(160,0,0,.78);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:14px;padding:10px 12px;max-width:70vw;font:12px/1.3 system-ui,Segoe UI,Roboto,Arial;white-space:pre-wrap;";
+      document.body.appendChild(box);
+    }
+    box.textContent = msg;
+  }
+  window.addEventListener("error", (e)=> showErr("JS Error: " + (e.message||e.error||e.type)));
+  window.addEventListener("unhandledrejection", (e)=> showErr("Promise Error: " + (e.reason?.message || String(e.reason))));
+})();
+/* =========================
+   USA TANK BATTLE (2D Canvas)
+   - Tank roster (Tier 1-4)
+   - Lots of maps (Desert/Urban/Forest/Snow/Jungle/Beach)
+   - Modes: TDM, Capture, Domination, Historical, Ranked, Training, Free Roam
+   ========================= */
+
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+const dist2 = (ax,ay,bx,by)=>{const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy;}
+const now = ()=>performance.now();
+
+
+// -------------------- Radar / Spotting --------------------
+const RADAR_PING_MS = 250;        // how often we update spotting
+const SPOT_PERSIST_MS = 1500;     // how long a spotted tank stays on radar after losing sight
+const PROX_REVEAL = 160;          // very close tanks appear even if LOS is blocked (you found them)
+
+function pointInRect(x,y,r){ return x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h; }
+
+function segSeg(ax,ay,bx,by,cx,cy,dx,dy){
+  // segment intersection (ccw)
+  const ccw = (x1,y1,x2,y2,x3,y3)=> (y3-y1)*(x2-x1) > (y2-y1)*(x3-x1);
+  return (ccw(ax,ay,cx,cy,dx,dy) !== ccw(bx,by,cx,cy,dx,dy)) &&
+         (ccw(ax,ay,bx,by,cx,cy) !== ccw(ax,ay,bx,by,dx,dy));
+}
+
+function segIntersectsRect(x1,y1,x2,y2,r){
+  if(pointInRect(x1,y1,r) || pointInRect(x2,y2,r)) return true;
+  const rx=r.x, ry=r.y, rw=r.w, rh=r.h;
+  // edges
+  if(segSeg(x1,y1,x2,y2, rx,ry, rx+rw,ry)) return true;           // top
+  if(segSeg(x1,y1,x2,y2, rx,ry+rh, rx+rw,ry+rh)) return true;     // bottom
+  if(segSeg(x1,y1,x2,y2, rx,ry, rx,ry+rh)) return true;           // left
+  if(segSeg(x1,y1,x2,y2, rx+rw,ry, rx+rw,ry+rh)) return true;     // right
+  return false;
+}
+
+function hasLOS(ax,ay,bx,by){
+  // blocked by any obstacle rectangle (treat all obstacles as solid for radar)
+  for(const ob of STATE.obstacles){
+    // skip tiny border padding? keep it; it blocks looking outside map
+    if(segIntersectsRect(ax,ay,bx,by, ob)) return false;
+  }
+  return true;
+}
+
+function canDetect(observer, target){
+  const dx = target.x - observer.x, dy = target.y - observer.y;
+  const d2 = dx*dx + dy*dy;
+  const vr = (observer.def.viewRange || 520);
+  if(d2 > vr*vr) return false;
+  if(d2 < PROX_REVEAL*PROX_REVEAL) return true;
+  return hasLOS(observer.x, observer.y, target.x, target.y);
+}
+
+function isSpottedForTeam(team, target){
+  const t = now();
+  return team==="YOU" ? ((target.spottedYouUntil||0) > t) : ((target.spottedEnemyUntil||0) > t);
+}
+
+function setSpotted(team, target){
+  const until = now() + SPOT_PERSIST_MS;
+  if(team==="YOU") target.spottedYouUntil = Math.max(target.spottedYouUntil||0, until);
+  else target.spottedEnemyUntil = Math.max(target.spottedEnemyUntil||0, until);
+}
+
+function radarPing(){
+  // Clear-by-expiry is automatic (timestamps)
+  // For each observer, spot targets
+  for(const obs of STATE.entities){
+    if(obs.type!=="tank" || !obs.alive) continue;
+
+    // team spots opposite team
+    for(const tgt of STATE.entities){
+      if(tgt.type!=="tank" || !tgt.alive) continue;
+      if(tgt.team===obs.team) continue;
+
+      if(canDetect(obs, tgt)){
+        setSpotted(obs.team, tgt);
+      }
+    }
+  }
+}
+// ------------------ end radar ------------------
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+// -------------------- Textures / Skins (2D) --------------------
+const texSel = document.getElementById("texSel");
+let TEX_THEME = texSel ? texSel.value : "HIST";
+
+// Offscreen pattern cache: Map(theme -> Map(skinKey -> CanvasPattern))
+const TEX_CACHE = new Map();
+
+function slug(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
+
+function skinFor(def){
+  const n = (def.name||"").toLowerCase();
+  if(n.includes("firefly")) return "ww2_firefly";
+  if(n.includes("hellcat")) return "ww2_hellcat";
+  if(n.includes("greyhound")) return "ww2_greyhound";
+  if(n.includes("paladin")) return "modern_spg";
+  if(n.includes("stryker")) return "modern_digital";
+  if(n.includes("abrams")) return "modern_abrams";
+  if(n.includes("m103")) return "coldwar_heavy";
+  if(n.includes("patton") || n.includes("m60")) return "coldwar_patton";
+  if(n.includes("sherman")) return "ww2_sherman";
+  if(n.includes("wolverine") || n.includes("jackson") || n.includes("wolverine")) return "ww2_td";
+  if(n.includes("pershing")) return "ww2_pershing";
+  if(def.tier<=2) return "ww2_"+def.klass.toLowerCase();
+  if(def.tier===3) return "coldwar_"+def.klass.toLowerCase();
+  return "modern_"+def.klass.toLowerCase();
+}
+
+function themePalette(theme, base){
+  const P = {
+    HIST: {
+      olive: ["#2f4a2f","#20361f","#4d6a3a","#1a2418"],
+      tan:   ["#b59a6a","#8c774f","#d7c28b","#6d5a3c"],
+      gray:  ["#6a6f77","#4e525a","#8b929c","#2e3137"],
+      white: ["#e8edf6","#cfd8e8","#f7fbff","#aab4c9"],
+      neon:  ["#00f5ff","#ff3df2","#b6ff3d","#111827"]
+    },
+    FOREST: {
+      olive: ["#1f3a26","#132418","#31513a","#0f1710"],
+      tan:   ["#6a6b41","#515232","#91916a","#303016"],
+      gray:  ["#3c4a44","#2a3430","#55665f","#141a18"],
+      white: ["#dfe8ee","#b8c6d1","#f2fbff","#7c8b96"],
+      neon:  ["#2effc7","#80ff2e","#ffb12e","#0c1310"]
+    },
+    DESERT: {
+      olive: ["#9a8a62","#7a6c4b","#cbbd8a","#5a4f35"],
+      tan:   ["#cbb689","#a58f67","#ead9ac","#7a6748"],
+      gray:  ["#8b857b","#6e6a62","#b4afa3","#4a463f"],
+      white: ["#f0efe8","#d4d0c2","#ffffff","#a8a291"],
+      neon:  ["#ffdd33","#ff7a33","#33ffd7","#1a1205"]
+    },
+    WINTER: {
+      olive: ["#cfd8e8","#aab4c9","#f7fbff","#7c8aa3"],
+      tan:   ["#e7e6e1","#c9c8c1","#ffffff","#a6a59d"],
+      gray:  ["#b7c0cc","#8893a3","#eef3fb","#5a6270"],
+      white: ["#f7fbff","#dfe8f6","#ffffff","#b4c0d6"],
+      neon:  ["#7df9ff","#d6ff7d","#ff7df9","#0b0e14"]
+    },
+    URBAN: {
+      olive: ["#4a525a","#30363d","#6a717a","#1a1f26"],
+      tan:   ["#7a756d","#5d5952","#a39f97","#2b2823"],
+      gray:  ["#70757d","#50555c","#9aa1ab","#20232a"],
+      white: ["#dbe3ef","#b7c3d6","#f7fbff","#7e8aa3"],
+      neon:  ["#00e5ff","#ff2e88","#ffe52e","#0b0e14"]
+    },
+    TOY: {
+      olive: ["#32d399","#10b981","#a7f3d0","#064e3b"],
+      tan:   ["#fbbf24","#f59e0b","#fde68a","#7c2d12"],
+      gray:  ["#60a5fa","#3b82f6","#bfdbfe","#1e3a8a"],
+      white: ["#f8fafc","#e2e8f0","#ffffff","#94a3b8"],
+      neon:  ["#22c55e","#a855f7","#f97316","#111827"]
+    }
+  };
+  const pal = (P[theme] && P[theme][base]) || P.HIST.olive;
+  return pal;
+}
+
+function makePattern(theme, skinKey){
+  const c = document.createElement("canvas");
+  c.width = 48; c.height = 48;
+  const g = c.getContext("2d");
+
+  // base palette selection
+  let base = "olive";
+  if(skinKey.includes("abrams") || skinKey.includes("tan")) base = "tan";
+  if(skinKey.includes("digital") || skinKey.includes("td")) base = "gray";
+  if(theme==="WINTER") base = "white";
+  if(theme==="TOY") base = "neon";
+
+  const [c1,c2,c3,c4] = themePalette(theme, base);
+
+  g.fillStyle = c1;
+  g.fillRect(0,0,48,48);
+
+  const style =
+    skinKey.includes("digital") ? "digital" :
+    skinKey.includes("hellcat") ? "stripes" :
+    skinKey.includes("firefly") ? "checks" :
+    skinKey.includes("greyhound") ? "dots" :
+    skinKey.includes("spg") ? "bands" :
+    "camo";
+
+  if(style==="camo"){
+    g.fillStyle = c2;
+    for(let i=0;i<26;i++){
+      g.beginPath();
+      g.arc(Math.random()*48, Math.random()*48, 4+Math.random()*9, 0, Math.PI*2);
+      g.fill();
+    }
+    g.fillStyle = c3;
+    for(let i=0;i<16;i++){
+      g.beginPath();
+      g.arc(Math.random()*48, Math.random()*48, 3+Math.random()*6, 0, Math.PI*2);
+      g.fill();
+    }
+    g.fillStyle = c4;
+    for(let i=0;i<10;i++){
+      g.beginPath();
+      g.arc(Math.random()*48, Math.random()*48, 2+Math.random()*5, 0, Math.PI*2);
+      g.fill();
+    }
+  } else if(style==="digital"){
+    const cols = [c2,c3,c4];
+    for(let y=0;y<48;y+=6){
+      for(let x=0;x<48;x+=6){
+        if(Math.random()<0.65){
+          g.fillStyle = cols[(((x+y)/6)|0) % cols.length];
+          g.fillRect(x,y,6,6);
+        }
+      }
+    }
+  } else if(style==="stripes"){
+    g.fillStyle = c2;
+    for(let i=-48;i<96;i+=10){
+      g.save();
+      g.translate(24,24);
+      g.rotate(-Math.PI/5);
+      g.translate(-24,-24);
+      g.fillRect(i, 0, 6, 60);
+      g.restore();
+    }
+    g.fillStyle = c3;
+    for(let i=-48;i<96;i+=18){
+      g.save();
+      g.translate(24,24);
+      g.rotate(Math.PI/6);
+      g.translate(-24,-24);
+      g.fillRect(i, 0, 4, 60);
+      g.restore();
+    }
+  } else if(style==="checks"){
+    for(let y=0;y<48;y+=8){
+      for(let x=0;x<48;x+=8){
+        g.fillStyle = ((x+y)/8)%2 ? c2 : c3;
+        g.fillRect(x,y,8,8);
+      }
+    }
+    g.globalAlpha = 0.20; g.fillStyle = c4; g.fillRect(0,0,48,48); g.globalAlpha = 1;
+  } else if(style==="dots"){
+    g.fillStyle = c2;
+    for(let y=5;y<48;y+=10){
+      for(let x=5;x<48;x+=10){
+        g.beginPath(); g.arc(x,y,2.2,0,Math.PI*2); g.fill();
+      }
+    }
+    g.fillStyle = c3;
+    for(let i=0;i<14;i++){
+      g.beginPath(); g.arc(Math.random()*48, Math.random()*48, 2+Math.random()*4, 0, Math.PI*2); g.fill();
+    }
+  } else if(style==="bands"){
+    g.fillStyle = c2; g.fillRect(0, 8, 48, 6);
+    g.fillStyle = c3; g.fillRect(0, 22, 48, 7);
+    g.fillStyle = c4; g.fillRect(0, 36, 48, 5);
+  }
+
+  // subtle speckle
+  g.globalAlpha = 0.08;
+  g.fillStyle = "#fff";
+  for(let i=0;i<120;i++) g.fillRect(Math.random()*48, Math.random()*48, 1, 1);
+  g.globalAlpha = 1;
+
+  return ctx.createPattern(c, "repeat");
+}
+
+function getTankPattern(def){
+  const theme = TEX_THEME;
+  let themeMap = TEX_CACHE.get(theme);
+  if(!themeMap){ themeMap = new Map(); TEX_CACHE.set(theme, themeMap); }
+  const skinKey = def.skin || skinFor(def);
+  if(!themeMap.has(skinKey)) themeMap.set(skinKey, makePattern(theme, skinKey));
+  return themeMap.get(skinKey);
+}
+
+if(texSel){
+  texSel.addEventListener("change", ()=>{
+    TEX_THEME = texSel.value;
+    // Clear cache for this theme so patterns re-generate (fresh randomness)
+    TEX_CACHE.delete(TEX_THEME);
+  });
+}
+// ------------------ end textures ------------------
+const mcan = document.getElementById("mc");
+const mctx = mcan.getContext("2d");
+
+function resize() {
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  canvas.width = Math.floor(canvas.clientWidth * dpr);
+  canvas.height = Math.floor(canvas.clientHeight * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  mcan.width = Math.floor(mcan.clientWidth * dpr);
+  mcan.height = Math.floor(mcan.clientHeight * dpr);
+  mctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize", resize);
+
+/* ===== Roster ===== */
+const ROSTER = [
+  // Tier 1 – Early / WWII (fast reloads)
+  mkTank("M2A4 Light Tank", 1, "Light", 520, 2.6, 700, 3200, 30, "AP"),
+  mkTank("M3 Stuart",       1, "Light", 560, 2.8, 680, 3400, 32, "AP"),
+  mkTank("M5 Stuart",       1, "Light", 600, 3.0, 650, 3600, 33, "AP"),
+  mkTank("M8 Greyhound",    1, "Light", 480, 3.4, 800, 3000, 20, "HE"),
+
+  // Tier 2 – WWII Medium & Heavy
+  mkTank("M4 Sherman (M4A1)",             2, "Medium",  920, 2.2, 780, 5600, 50, "AP"),
+  mkTank("M4 Sherman (M4A3E8)",           2, "Medium",  980, 2.3, 760, 5200, 55, "AP"),
+  mkTank("Sherman Firefly (lend-lease)",  2, "Medium",  920, 2.1, 820, 6400, 55, "AP"),
+  mkTank("M10 Wolverine (TD)",            2, "TD",      860, 2.0, 900, 6500, 62, "AP"),
+  mkTank("M18 Hellcat (TD)",              2, "TD",      780, 3.2, 820, 5200, 55, "AP"),
+  mkTank("M36 Jackson (TD)",              2, "TD",      900, 2.2, 860, 7200, 68, "AP"),
+  mkTank("M26 Pershing (Heavy)",          2, "Heavy",  1200, 1.9, 900, 8200, 78, "AP"),
+
+  // Tier 3 – Cold War
+  mkTank("M46 Patton",      3, "Medium", 1200, 2.2, 820, 7200,  85, "HEAT"),
+  mkTank("M47 Patton",      3, "Medium", 1240, 2.1, 820, 7600,  90, "HEAT"),
+  mkTank("M48 Patton",      3, "Medium", 1320, 2.0, 840, 7800,  92, "HEAT"),
+  mkTank("M60 Patton",      3, "Medium", 1380, 2.0, 860, 8200,  98, "HEAT"),
+  mkTank("M60A1",           3, "Medium", 1420, 1.95,880, 8600, 102, "HEAT"),
+  mkTank("M60A3",           3, "Medium", 1480, 2.0, 900, 8200, 105, "HEAT"),
+  mkTank("M103 Heavy Tank", 3, "Heavy",  1850, 1.75,920, 10200,125, "HEAT"),
+
+  // Tier 4 – Modern
+  mkTank("M1 Abrams",         4, "Heavy", 1850, 2.35, 980, 6800, 140, "APFSDS"),
+  mkTank("M1A1 Abrams",       4, "Heavy", 1950, 2.35,1000, 7200, 155, "APFSDS"),
+  mkTank("M1A2 SEP",          4, "Heavy", 2050, 2.30,1040, 7600, 165, "APFSDS"),
+  mkTank("M1A2 SEP v3",       4, "Heavy", 2150, 2.28,1060, 7800, 175, "APFSDS"),
+  mkTank("M1128 Stryker MGS", 4, "Light", 1200, 3.0, 980, 5400,  80, "HEAT"),
+  mkTank("M109 Paladin (SPG)",4, "SPG",   1100, 1.6,1300, 13500, 40, "HE"),
+];
+
+// assign skins to roster tanks (for texture packs)
+ROSTER.forEach(d => d.skin = skinFor(d));
+
+
+function mkTank(name,tier,klass,hp,speed,range,reloadMs,armor,shell){
+  // Per-tank damage differences (WoT-ish feeling):
+  // Lights hit softer, TD/SPG hit harder, heavies slightly harder, higher tiers slightly stronger.
+  const classMul =
+    (klass==="Light") ? 0.82 :
+    (klass==="Medium") ? 1.00 :
+    (klass==="Heavy") ? 1.12 :
+    (klass==="TD") ? 1.26 :
+    (klass==="SPG") ? 1.34 : 1.00;
+
+  const tierMul = 1 + (tier-2)*0.06; // small bump per tier
+  const gunMul = Math.max(0.65, classMul * tierMul);
+
+  return {
+    name, tier, klass,
+    hpMax: hp,
+    speed,
+    viewRange: range,
+    reloadMs: reloadMs,     // base reload (ms)
+    armor,
+    shell,
+    gunMul,                 // damage multiplier for this tank
+  };
+}
+
+/* ===== Maps ===== */
+const MAPS = [
+  // Desert
+  mapDef("Nevada Training Grounds", "Desert"),
+  mapDef("Middle East Oil Fields", "Desert"),
+  mapDef("Sahara Ruins", "Desert"),
+  // Urban
+  mapDef("New York Suburbs", "Urban"),
+  mapDef("Berlin Ruins", "Urban"),
+  mapDef("Tokyo Industrial Zone", "Urban"),
+  // Forest / Plains
+  mapDef("European Farmlands", "Forest"),
+  mapDef("Appalachian Forest", "Forest"),
+  mapDef("Pacific Grasslands", "Forest"),
+  // Snow
+  mapDef("Alaska Ice Fields", "Snow"),
+  mapDef("Arctic Base", "Snow"),
+  mapDef("Eastern Europe Winter", "Snow"),
+  // Jungle
+  mapDef("Vietnam Jungle", "Jungle"),
+  mapDef("Island Outposts", "Jungle"),
+  // Beach / Amphibious
+  mapDef("Normandy-style Landing", "Beach"),
+  mapDef("Pacific Island Assault", "Beach"),
+];
+
+function mapDef(name, env){
+  return { name, env };
+}
+
+const ENV = {
+  Desert: { ground:"#c9b27c", deco:"#a88f5b", wall:"#5f5240", water:"#3b6a91" },
+  Urban:  { ground:"#6a6f78", deco:"#515760", wall:"#2a2f38", water:"#2d5577" },
+  Forest: { ground:"#5e7a50", deco:"#46613b", wall:"#2c3c2a", water:"#2f6580" },
+  Snow:   { ground:"#dfe8ef", deco:"#a8b9c8", wall:"#4a5a66", water:"#2d5777" },
+  Jungle: { ground:"#2f6b3b", deco:"#1f4d2a", wall:"#15331c", water:"#1e5870" },
+  Beach:  { ground:"#d6caa4", deco:"#a7a07f", wall:"#3c3c3c", water:"#2f6c8b" },
+};
+
+/* ===== UI Populate ===== */
+const tankSel = document.getElementById("tankSel");
+const tierSel = document.getElementById("tierSel");
+const classSel = document.getElementById("classSel");
+const tankStats = document.getElementById("tankStats");
+const mapSel = document.getElementById("mapSel");
+const modeSel = document.getElementById("modeSel");
+const userNameInp = document.getElementById("userNameInp");
+const aiCountSel = document.getElementById("aiCount");
+const diffSel = document.getElementById("difficulty");
+
+// ===== Menu / Loading / Battle presentation =====
+let menuOverlay;
+let loadingOverlay;
+let countdownOverlay;
+let hudTopLeft;
+let battleInfo;
+let menuCoins;
+let garageMount;
+let menuPlayBtn;
+let menuHowBtn;
+let loadMapName;
+let loadModeName;
+let loadBar;
+let loadTip;
+let menuTip;
+let toGarageBtn;
+
+const TIPS = [
+  "Use cover: if you're behind a structure, radar can't spot you unless close.",
+  "Aim for weak spots for extra damage (rear is easiest).",
+  "Tracks hit: 20% chance to immobilize—finish them off!",
+  "Heavies reload slower but punch harder.",
+  "Same-tier matchmaking is on—pick smart upgrades."
+];
+
+function initMenuElements(){
+  // Grab overlay elements after the DOM exists (prevents null refs if script runs before overlays)
+  menuOverlay = document.getElementById("menuOverlay");
+  loadingOverlay = document.getElementById("loadingOverlay");
+  countdownOverlay = document.getElementById("countdownOverlay");
+  hudTopLeft = document.getElementById("hudTopLeft");
+  battleInfo = document.getElementById("battleInfo");
+  menuCoins = document.getElementById("menuCoins");
+  garageMount = document.getElementById("garageMount");
+  menuPlayBtn = document.getElementById("menuPlayBtn");
+  menuHowBtn = document.getElementById("menuHowBtn");
+  loadMapName = document.getElementById("loadMapName");
+  loadModeName = document.getElementById("loadModeName");
+  loadBar = document.getElementById("loadBar");
+  loadTip = document.getElementById("loadTip");
+  menuTip = document.getElementById("menuTip");
+  toGarageBtn = document.getElementById("toGarageBtn");
+}
+
+function randTip(){ return TIPS[(Math.random()*TIPS.length)|0]; }
+
+function setUIMode(mode){
+  if(mode==="MENU"){
+    document.body.classList.remove("battle");
+    if(menuOverlay) menuOverlay.style.display="flex";
+    if(loadingOverlay) loadingOverlay.style.display="none";
+    if(countdownOverlay) countdownOverlay.style.display="none";
+    if(hudTopLeft) hudTopLeft.style.display="none";
+    // show left panel so the menu can mount it
+    const left = document.getElementById("left");
+    if(left) left.style.display="";
+  } else if(mode==="LOADING"){
+    document.body.classList.remove("battle");
+    if(menuOverlay) menuOverlay.style.display="none";
+    if(loadingOverlay) loadingOverlay.style.display="flex";
+    if(countdownOverlay) countdownOverlay.style.display="none";
+    if(hudTopLeft) hudTopLeft.style.display="none";
+    // hide left panel while loading
+    const left = document.getElementById("left");
+    if(left) left.style.display="none";
+  } else { // BATTLE
+    document.body.classList.add("battle");
+    if(menuOverlay) menuOverlay.style.display="none";
+    if(loadingOverlay) loadingOverlay.style.display="none";
+    if(countdownOverlay) countdownOverlay.style.display="none";
+    if(hudTopLeft) hudTopLeft.style.display="block";
+    const left = document.getElementById("left");
+    if(left) left.style.display="none";
+  }
+}
+
+function mountGarageUI(){
+  // Move the existing left panel content into the menu's garage area
+  // We move the children of #left into #garageMount, but keep #left as an empty shell for layout.
+  const left = document.getElementById("left");
+  if(!left || !garageMount) return;
+  if(garageMount.children.length>0) return;
+  // Move all children
+  while(left.firstChild){
+    garageMount.appendChild(left.firstChild);
+  }
+  // Add a tiny footer in garage mount
+  const foot = document.createElement("div");
+  foot.className="tiny";
+  foot.style.padding="12px";
+  foot.innerHTML = "Controls: <span class='kbd'>WASD</span> <span class='kbd'>Mouse Aim</span> <span class='kbd'>Click/Space Shoot</span> <span class='kbd'>Esc Garage</span>";
+  garageMount.appendChild(foot);
+}
+
+function updateMenuCoins(){
+  if(menuCoins) menuCoins.textContent = ECON.coins.toLocaleString();
+}
+
+function showHow(){
+  showCenter("How to Play", `
+    <div style="text-align:left">
+      <div><b>Goal:</b> win battles to earn <b>50,000 coins</b>.</div>
+      <div style="margin-top:8px"><b>Spotting:</b> enemies behind structures are hidden unless close or in line-of-sight.</div>
+      <div style="margin-top:8px"><b>Damage:</b> front armor has a low pierce chance; weak spots do more damage.</div>
+      <div style="margin-top:8px"><b>Co-op:</b> You + allies vs equal-number enemies.</div>
+      <div style="margin-top:8px"><b>1v1:</b> local duel with Player 2 controls.</div>
+    </div>
+  `);
+}
+
+async function beginBattle(){
+  if(modeSel && (modeSel.value==="ONLINE1V1" || modeSel.value==="ONLINE2V2" || false)){ return beginOnlineBattle(); }
+
+  // Update UI strings
+  const mapName = mapSel.options[mapSel.selectedIndex]?.textContent || "Unknown Map";
+  const modeName = modeSel.options[modeSel.selectedIndex]?.textContent || "Mode";
+  if(loadMapName) loadMapName.textContent = "Map: " + mapName;
+  if(loadModeName) loadModeName.textContent = "Mode: " + modeName;
+  if(loadTip) loadTip.textContent = "Tip: " + randTip();
+  if(menuTip) menuTip.textContent = "Tip: " + randTip();
+
+  setUIMode("LOADING");
+
+  // Fake loading bar (feels like WoT)
+  const dur = 1300 + Math.random()*1100;
+  const t0 = now();
+  return new Promise((resolve)=>{
+    function anim(){
+      const p = clamp((now()-t0)/dur, 0, 1);
+      if(loadBar) loadBar.style.width = Math.round(p*100) + "%";
+      if(p < 1) requestAnimationFrame(anim);
+      else {
+        // Start game, then countdown, then fight.
+        startGame();
+        battleInfo.textContent = `${modeName} • ${mapName} • ${getSelectedTankDef()?.name || ""}`;
+        setUIMode("BATTLE");
+        doCountdown().then(resolve);
+      }
+    }
+    requestAnimationFrame(anim);
+  });
+}
+
+function doCountdown(){
+  if(!countdownOverlay) return Promise.resolve();
+  countdownOverlay.style.display="flex";
+  const nums = ["3","2","1"];
+  return new Promise((resolve)=>{
+    let i = 0;
+    const nEl = document.getElementById("countNum");
+    const sEl = document.getElementById("countSub");
+    function step(){
+      if(i < nums.length){
+        if(nEl) nEl.textContent = nums[i];
+        if(sEl) sEl.textContent = "Battle starts";
+        i++;
+        setTimeout(step, 700);
+      }else{
+        if(nEl) nEl.textContent = "FIGHT!";
+        if(sEl) sEl.textContent = "Good luck";
+        setTimeout(()=>{
+          countdownOverlay.style.display="none";
+          resolve();
+        }, 650);
+      }
+    }
+    step();
+  });
+}
+
+const coinLbl = document.getElementById("coinLbl");
+const ownedLbl = document.getElementById("ownedLbl");
+const buyBtn = document.getElementById("buyBtn");
+
+/* ===== Combat Toast ===== */
+let __toastTimer = 0;
+function toastMsg(htmlText){
+  const el = document.getElementById("toast");
+  if(!el) return;
+  el.innerHTML = htmlText;
+  el.style.display = "block";
+  el.style.opacity = "1";
+  clearTimeout(__toastTimer);
+  __toastTimer = setTimeout(()=>{ 
+    el.style.opacity = "0";
+    setTimeout(()=>{ el.style.display="none"; }, 220);
+  }, 950);
+}
+/* ===== Economy (Auto-save) ===== */
+const SAVE_KEY = "USA_TANK_SAVE_V1";
+const WIN_REWARD = 50000;
+
+const ECON = {
+  coins: 0,
+  owned: new Set(), // tank names
+  lastTank: null,
+  starterGranted: false,
+};
+
+function tankPrice(def, index){
+  // First tank is free
+  if(index===0) return 0;
+
+  const tierBase = {1:120000, 2:450000, 3:1200000, 4:3200000}[def.tier] || 500000;
+  const classMul = {Light:0.70, Medium:0.90, Heavy:1.15, TD:1.05, SPG:1.20}[def.klass] || 1.0;
+
+  // small flavor adjustment based on reload/speed (keeps prices sensible)
+  const speedAdj  = clamp(1.00 - (def.speed-120)/900, 0.86, 1.10);
+  const reloadAdj = clamp(0.92 + (def.reloadMs/10000), 0.90, 1.25);
+
+  const raw = tierBase * classMul * speedAdj * reloadAdj;
+  return Math.max(20000, Math.round(raw/5000)*5000); // nearest 5k
+}
+
+function saveGame(){
+  try{
+    const payload = {
+      coins: ECON.coins,
+      owned: Array.from(ECON.owned),
+      lastTank: tankSel.value || ECON.lastTank || null,
+      starterGranted: ECON.starterGranted,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+  }catch(e){
+    console.warn("Save failed:", e);
+  }
+}
+
+function loadGame(){
+  // Ensure all tanks have prices (computed once)
+  ROSTER.forEach((d,i)=>{ if(d.price==null) d.price = tankPrice(d,i); });
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) throw new Error("no save");
+    const data = JSON.parse(raw);
+
+    ECON.coins = Number.isFinite(data.coins) ? data.coins : 130000;
+    ECON.owned = new Set(Array.isArray(data.owned) ? data.owned : []);
+    ECON.lastTank = (typeof data.lastTank==="string") ? data.lastTank : null;
+    ECON.starterGranted = !!data.starterGranted;
+
+    // Safety: always own the first tank (free)
+    if(ROSTER[0]) ECON.owned.add(ROSTER[0].name);
+
+    // Starter grant (once): ensure you start with at least 130,000 coins
+    if(!ECON.starterGranted){
+      ECON.coins = Math.max(ECON.coins, 130000);
+      ECON.starterGranted = true;
+      saveGame();
+    }
+  }catch(_){
+    // Fresh start: Tier 1 only (start with the first tank free)
+    ECON.coins = 130000;
+    ECON.owned = new Set([ROSTER[0]?.name].filter(Boolean));
+    ECON.lastTank = ROSTER[0]?.name || null;
+    ECON.starterGranted = true;
+
+    // Start UI on Tier 1
+    tierSel.value = "1";
+    classSel.value = "ALL";
+    saveGame();
+  }
+  renderCoins();
+}
+
+function renderCoins(){
+  if(coinLbl) coinLbl.textContent = ECON.coins.toLocaleString();
+  const hc = document.getElementById('hudCoins');
+  if(hc) hc.textContent = ECON.coins.toLocaleString();
+}
+
+function isOwned(def){
+  return ECON.owned.has(def.name);
+}
+
+function firstOwnedTank(){
+  for(const d of ROSTER){
+    if(isOwned(d)) return d;
+  }
+  return ROSTER[0];
+}
+
+function tryBuy(def){
+  if(isOwned(def)) return true;
+  const price = def.price ?? 0;
+  if(ECON.coins < price) return false;
+  ECON.coins -= price;
+  ECON.owned.add(def.name);
+  renderCoins();
+  saveGame();
+  return true;
+}
+
+
+function populateMaps(){
+  mapSel.innerHTML="";
+  for(const m of MAPS){
+    const opt = document.createElement("option");
+    opt.value = m.name;
+    opt.textContent = `${m.name} (${m.env})`;
+    mapSel.appendChild(opt);
+  }
+}
+
+function filteredRoster(){
+  const t = tierSel.value, c = classSel.value;
+  return ROSTER.filter(x => (t==="ALL"||String(x.tier)===t) && (c==="ALL"||x.klass===c));
+}
+
+function populateTanks(){
+  const list = filteredRoster();
+  tankSel.innerHTML="";
+  for(const t of list){
+    const opt = document.createElement("option");
+    opt.value = t.name;
+    const owned = isOwned(t);
+    const price = t.price ?? 0;
+    opt.textContent = owned
+      ? `${t.name} — Tier ${t.tier} ${t.klass} (OWNED)`
+      : `${t.name} — Tier ${t.tier} ${t.klass} (LOCKED • ${price.toLocaleString()} coins)`;
+    tankSel.appendChild(opt);
+  }
+  if(!list.length){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No tanks match filter.";
+    tankSel.appendChild(opt);
+  }
+  // If current selection is locked, snap to last owned or first owned.
+  const cur = getSelectedTankDef();
+  if(cur && !isOwned(cur)){
+    const prefer = (ECON.lastTank && ECON.owned.has(ECON.lastTank)) ? ECON.lastTank : (firstOwnedTank()?.name);
+    if(prefer) tankSel.value = prefer;
+  }
+  updateTankStats();
+
+}
+
+function getSelectedTankDef(){
+  const name = tankSel.value;
+  return ROSTER.find(t=>t.name===name) || filteredRoster()[0] || ROSTER[0];
+}
+
+function updateTankStats(){
+  const t = getSelectedTankDef();
+  if(!t){ tankStats.textContent='—'; return; }
+  const owned = isOwned(t);
+  const price = t.price ?? 0;
+
+  if(ownedLbl){
+    ownedLbl.textContent = owned ? `Owned: ${ECON.owned.size} / ${ROSTER.length}` : `Locked`; 
+    ownedLbl.style.color = owned ? 'rgba(140,255,200,.95)' : 'rgba(255,160,160,.95)';
+  }
+  if(buyBtn){
+    if(owned){ buyBtn.style.display='none'; }
+    else {
+      buyBtn.style.display='inline-block';
+      buyBtn.textContent = (ECON.coins>=price) ? `Buy (${price.toLocaleString()})` : `Need ${price.toLocaleString()}`;
+      buyBtn.disabled = ECON.coins < price;
+    }
+  }
+
+  ECON.lastTank = t.name;
+  saveGame();
+  tankStats.innerHTML = `
+    <div><b>${t.name}</b></div>
+    <div>Tier ${t.tier} • Class: ${t.klass}</div>
+    <div style="margin-top:6px;">
+      <span class="pill">HP ${t.hpMax}</span>
+      <span class="pill">Speed ${t.speed.toFixed(2)}</span>
+      <span class="pill">Armor ${t.armor}</span>
+    </div>
+    <div style="margin-top:6px;">
+      <span class="pill">Shell ${t.shell}</span>
+      <span class="pill">Dmg x${t.gunMul.toFixed(2)}</span>
+      <span class="pill">Reload ${reloadForTank(t)}ms</span>
+      <span class="pill">Range ${t.viewRange}</span>
+    </div>
+  `;
+}
+
+tierSel.addEventListener("change", populateTanks);
+classSel.addEventListener("change", populateTanks);
+tankSel.addEventListener("change", updateTankStats);
+
+populateMaps();
+loadGame();
+// restore last owned tank selection
+const preferred = (ECON.lastTank && ECON.owned.has(ECON.lastTank)) ? ECON.lastTank : (firstOwnedTank()?.name);
+if(preferred) tankSel.value = preferred;
+populateTanks();
+
+/* ===== Game State ===== */
+const STATE = {
+  running:false,
+  rewarded:false,
+  paused:false,
+  firePrev:false,
+  firePrev2:false,
+  coopAllyId:null,
+  pvp2Id:null,
+  mode:"TDM",
+  difficulty:"NORMAL",
+  t0:0,
+  elapsed:0,
+  radarNext:0,
+  world:{ w:2400, h:1600 },
+  env:"Desert",
+  mapName:"",
+  obstacles:[],
+  water:[],
+  zones:[],
+  bases:[],
+  entities:[],
+  bullets:[],
+  particles:[],
+  player:null,
+  scoreYou:0,
+  scoreEnemies:0,
+  win:false,
+  lose:false,
+};
+
+const keys = new Set();
+window.addEventListener("keydown", (e)=>{
+  if(e.key==="Escape"){ togglePause(); e.preventDefault(); return; }
+  keys.add(e.key.toLowerCase());
+  if(e.key===" "){ e.preventDefault(); }
+});
+window.addEventListener("keyup", (e)=> keys.delete(e.key.toLowerCase()));
+
+let mouse = {x:0,y:0, down:false};
+canvas.addEventListener("mousemove", (e)=>{
+  const r = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - r.left);
+  mouse.y = (e.clientY - r.top);
+});
+canvas.addEventListener("mousedown", ()=> mouse.down=true);
+window.addEventListener("mouseup", ()=> mouse.down=false);
+
+canvas.addEventListener("touchstart",(e)=>{
+  mouse.down=true;
+  const t=e.touches[0];
+  const r=canvas.getBoundingClientRect();
+  mouse.x=t.clientX-r.left; mouse.y=t.clientY-r.top;
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener("touchmove",(e)=>{
+  const t=e.touches[0];
+  const r=canvas.getBoundingClientRect();
+  mouse.x=t.clientX-r.left; mouse.y=t.clientY-r.top;
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener("touchend",(e)=>{
+  mouse.down=false;
+  e.preventDefault();
+},{passive:false});
+
+/* ===== Entities ===== */
+function spawnTank(def, team, x, y, ai=false){
+  const angle = Math.random()*Math.PI*2;
+  const id = Math.random().toString(36).slice(2);
+  return {
+    id,
+    type:"tank",
+    def,
+    team, // "YOU" or "ENEMY"
+    x,y,
+    vx:0, vy:0,
+    bodyA: angle,
+    turretA: angle,
+    hp: def.hpMax,
+    alive:true,
+    ai,
+    reload: 0,
+    targetId: null,
+    panic: 0,
+    boost: 0,
+    aiReadyAt: 0,
+    immobilizedUntil: 0,
+    spottedYouUntil: 0,
+    spottedEnemyUntil: 0,
+    followSlot: 0,
+  };
+}
+
+function spawnBullet(owner, x,y, ang, speed, damage, pen, shell){
+  return {
+    ownerName: owner.def ? owner.def.name : (owner.name||'Tank'), type:"bullet", ownerId:owner.id, team:owner.team, x,y, vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed, ang, damage, pen, shell, life:2500, born:now() };
+}
+
+function explode(x,y, power){
+  // particles
+  const n = 10 + Math.floor(power/8);
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2;
+    const s = 0.4 + Math.random()*2.2;
+    STATE.particles.push({x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:500+Math.random()*500, born:now()});
+  }
+}
+
+/* ===== World Gen ===== */
+function makeWorld(mapName, envName){
+  const env = ENV[envName] || ENV.Desert;
+  STATE.env = envName;
+  STATE.mapName = mapName;
+
+  // size by env / map
+  let w=2400, h=1600;
+  if(envName==="Urban") { w=2200; h=1500; }
+  if(envName==="Beach") { w=2600; h=1500; }
+  if(envName==="Jungle") { w=2400; h=1700; }
+  STATE.world.w=w; STATE.world.h=h;
+
+  STATE.obstacles = [];
+  STATE.water = [];
+  STATE.zones = [];
+  STATE.bases = [];
+
+  // helper: add rect obstacles
+  const addRect = (x,y,w,h,kind="wall") => STATE.obstacles.push({x,y,w,h,kind});
+
+  // border walls (soft)
+  addRect(-40,-40, w+80, 40);
+  addRect(-40,h, w+80, 40);
+  addRect(-40,0, 40, h);
+  addRect(w,0, 40, h);
+
+  // generate based on env
+  const rng = mulberry32(hashStr(mapName+envName));
+
+  if(envName==="Desert"){
+    // dunes/rocks
+    for(let i=0;i<32;i++){
+      const rw = 60+rng()*180, rh=40+rng()*140;
+      addRect(120+rng()*(w-240), 120+rng()*(h-240), rw, rh, "rock");
+    }
+    // little oasis
+    STATE.water.push({x:w*0.65, y:h*0.55, r:120});
+  }
+  if(envName==="Urban"){
+    // buildings
+    for(let i=0;i<70;i++){
+      const bw=60+rng()*120, bh=60+rng()*140;
+      const x=100+rng()*(w-200), y=100+rng()*(h-200);
+      addRect(x,y,bw,bh,"building");
+    }
+    // streets: carve corridors by removing some obstacles (simple)
+  }
+  if(envName==="Forest"){
+    // trees (small obstacles)
+    for(let i=0;i<120;i++){
+      const s=18+rng()*26;
+      addRect(80+rng()*(w-160), 80+rng()*(h-160), s, s, "tree");
+    }
+    // river
+    STATE.water.push({x:w*0.5, y:h*0.52, r:160});
+    STATE.water.push({x:w*0.55, y:h*0.48, r:140});
+  }
+  if(envName==="Snow"){
+    // ice rocks
+    for(let i=0;i<46;i++){
+      const rw=40+rng()*140, rh=30+rng()*120;
+      addRect(100+rng()*(w-200), 100+rng()*(h-200), rw, rh, "ice");
+    }
+    // base structures
+    for(let i=0;i<14;i++){
+      const bw=50+rng()*100, bh=50+rng()*100;
+      addRect(120+rng()*(w-240), 120+rng()*(h-240), bw, bh, "crate");
+    }
+  }
+  if(envName==="Jungle"){
+    // dense trees + ruins
+    for(let i=0;i<160;i++){
+      const s=16+rng()*30;
+      addRect(70+rng()*(w-140), 70+rng()*(h-140), s, s, "tree");
+    }
+    for(let i=0;i<18;i++){
+      const rw=60+rng()*160, rh=60+rng()*160;
+      addRect(140+rng()*(w-280), 140+rng()*(h-280), rw, rh, "ruin");
+    }
+    STATE.water.push({x:w*0.3, y:h*0.65, r:160});
+  }
+  if(envName==="Beach"){
+    // coastline water on left
+    STATE.water.push({x:w*0.12, y:h*0.5, r:520});
+    // bunkers
+    for(let i=0;i<26;i++){
+      const bw=70+rng()*160, bh=40+rng()*120;
+      addRect(w*0.28 + rng()*(w*0.68), 100+rng()*(h-200), bw, bh, "bunker");
+    }
+  }
+
+  // objective zones/bases
+  const baseR = 90;
+  STATE.bases = [
+    {team:"YOU", x:w*0.18, y:h*0.5, r:baseR, cap:0},
+    {team:"ENEMY", x:w*0.82, y:h*0.5, r:baseR, cap:0},
+  ];
+  STATE.zones = [
+    {id:"A", x:w*0.30, y:h*0.25, r:95, owner:"NONE", progress:0},
+    {id:"B", x:w*0.50, y:h*0.50, r:110, owner:"NONE", progress:0},
+    {id:"C", x:w*0.70, y:h*0.75, r:95, owner:"NONE", progress:0},
+  ];
+}
+
+function hashStr(s){
+  let h=1779033703 ^ s.length;
+  for(let i=0;i<s.length;i++){
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return (h>>>0);
+}
+function mulberry32(a){
+  return function(){
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+}
+
+/* ===== Collision ===== */
+function rectHit(x,y, r, rect){
+  // circle vs rect
+  const cx = clamp(x, rect.x, rect.x+rect.w);
+  const cy = clamp(y, rect.y, rect.y+rect.h);
+  return dist2(x,y,cx,cy) <= r*r;
+}
+function tankRadius(def){ // approximate by class
+  if(def.klass==="SPG") return 18;
+  if(def.klass==="Heavy") return 17;
+  if(def.klass==="Medium") return 16;
+  if(def.klass==="TD") return 16;
+  return 15;
+}
+function resolveTankOverlaps(){
+  const tanks = STATE.entities.filter(e=>e.alive && e.type==="tank");
+  for(let i=0;i<tanks.length;i++){
+    for(let j=i+1;j<tanks.length;j++){
+      const a = tanks[i], b = tanks[j];
+      const ra = tankRadius(a.def)*0.95, rb = tankRadius(b.def)*0.95;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx,dy) || 0.0001;
+      const minD = ra + rb;
+      if(d < minD){
+        const push = (minD - d) * 0.5;
+        const nx = dx / d, ny = dy / d;
+        a.x -= nx*push; a.y -= ny*push;
+        b.x += nx*push; b.y += ny*push;
+        a.x = clamp(a.x, 40, STATE.world.w-40);
+        a.y = clamp(a.y, 40, STATE.world.h-40);
+        b.x = clamp(b.x, 40, STATE.world.w-40);
+        b.y = clamp(b.y, 40, STATE.world.h-40);
+      }
+    }
+  }
+}
+
+function resolveTankObstacles(t){
+  const r = tankRadius(t.def);
+  for(const ob of STATE.obstacles){
+    if(rectHit(t.x,t.y,r,ob)){
+      // push out along smallest axis
+      const cx = clamp(t.x, ob.x, ob.x+ob.w);
+      const cy = clamp(t.y, ob.y, ob.y+ob.h);
+      let dx = t.x - cx, dy = t.y - cy;
+      const d = Math.hypot(dx,dy) || 1;
+      const push = (r - d) + 0.5;
+      dx /= d; dy /= d;
+      t.x += dx*push;
+      t.y += dy*push;
+      // damp
+      t.vx *= 0.7; t.vy *= 0.7;
+    }
+  }
+}
+
+/* ===== Shell Model (simple but fun) ===== */
+function shellStats(shell){
+  switch(shell){
+    case "HE":     return {speed: 7.2, dmg: 34, pen: 35, splash: 56, reloadMul: 1.10};
+    case "HEAT":   return {speed: 7.8, dmg: 48, pen: 115, splash: 20, reloadMul: 1.20};
+    case "APFSDS": return {speed: 10.2, dmg: 56, pen: 185, splash: 10, reloadMul: 1.05};
+    case "AP":
+    default:       return {speed: 8.6, dmg: 42, pen: 85, splash: 12, reloadMul: 1.00};
+  }
+}
+
+// Final reload time (base tank reload * shell modifier)
+function reloadForTank(def){
+  const st = shellStats(def.shell);
+  const mul = (st && st.reloadMul) ? st.reloadMul : 1;
+  return Math.max(120, Math.round(def.reloadMs * mul));
+}
+
+// Track damage: chance to immobilize ("tracked")
+function trackStunMs(def){
+  const k = def.klass;
+  if(k==="Light") return 1800;
+  if(k==="Medium") return 2300;
+  if(k==="Heavy" || k==="TD") return 2800;
+  if(k==="SPG") return 3200;
+  return 2400;
+}
+function effectiveArmor(target, bulletAng){
+  // crude "angling": if hit from front-ish, armor stronger
+  // estimate based on target body direction vs incoming
+  const incoming = bulletAng + Math.PI; // from bullet to target
+  const da = angleDiff(target.bodyA, incoming);
+  const frontFactor = lerp(1.15, 0.85, Math.abs(da)/Math.PI); // front more armor, rear less
+  return target.def.armor * frontFactor;
+}
+function angleDiff(a,b){
+  let d = (a-b) % (Math.PI*2);
+  if(d>Math.PI) d-=Math.PI*2;
+  if(d<-Math.PI) d+=Math.PI*2;
+  return d;
+}
+
+/* ===== AI ===== */
+function getAITarget(t){
+  // AI can only target tanks it (or its team) has spotted.
+  // Enemy AI targets YOU tanks; Ally AI targets ENEMY tanks.
+  let best=null, bestD2=Infinity;
+
+  for(const e of STATE.entities){
+    if(!e.alive || e.type!=="tank") continue;
+    if(e.team===t.team) continue;
+
+    // visible if directly detectable OR already spotted by team
+    const visible = canDetect(t,e) || isSpottedForTeam(t.team, e);
+    if(!visible) continue;
+
+    const d2 = dist2(t.x,t.y, e.x,e.y);
+    if(d2 < bestD2){ bestD2=d2; best=e; }
+  }
+  return best;
+}
+
+
+function allyFollow(t, dt){
+  const p = STATE.player;
+  if(!p || !p.alive) return;
+
+  // follow position: behind player with a small side offset per ally slot
+  const followDist = 140;
+  const side = (t.followSlot%2===0 ? -1 : 1) * (50 + (Math.floor(t.followSlot/2)*18));
+  const tx = p.x - Math.cos(p.bodyA)*followDist + Math.cos(p.bodyA + Math.PI/2)*side;
+  const ty = p.y - Math.sin(p.bodyA)*followDist + Math.sin(p.bodyA + Math.PI/2)*side;
+
+  const dx = tx - t.x, dy = ty - t.y;
+  const d2 = dx*dx + dy*dy;
+  const desiredA = Math.atan2(dy, dx);
+
+  t.bodyA = turnToward(t.bodyA, desiredA, 2.2*dt);
+
+  // move unless too close
+  const tracked = (t.immobilizedUntil && now() < t.immobilizedUntil);
+  if(tracked){
+    t.vx *= 0.85; t.vy *= 0.85;
+    return;
+  }
+
+  const speedMul = d2 > 260*260 ? 0.95 : d2 > 120*120 ? 0.7 : 0.0;
+  const sp = t.def.speed * 120 * speedMul;
+
+  t.vx += Math.cos(t.bodyA) * sp * dt;
+  t.vy += Math.sin(t.bodyA) * sp * dt;
+
+  // turret points same direction as body while following
+  t.turretA = turnToward(t.turretA, t.bodyA, 3.2*dt);
+}
+
+
+function aiStep(t, dt){
+  // AI waits a tiny moment after reload is ready (feels more like WoT)
+  if(t.reload<=0){
+    if(!t.aiReadyAt) t.aiReadyAt = now() + 250 + Math.random()*650;
+  } else {
+    t.aiReadyAt = 0;
+  }
+
+  const diff = STATE.difficulty;
+  const aggro = diff==="HARD" ? 1.25 : diff==="EASY" ? 0.85 : 1.0;
+  const aimHelp = diff==="HARD" ? 0.15 : diff==="EASY" ? 0.35 : 0.25;
+  const target = getAITarget(t);
+  if(!target){
+    if(STATE.mode==="COOP" && t.team==="YOU" && t.isAlly) { allyFollow(t, dt); }
+    return;
+  }
+
+  const d2p = dist2(t.x,t.y, target.x,target.y);
+  const inRange = d2p < (t.def.viewRange * t.def.viewRange);
+
+  // choose a target (target only for now)
+  if(inRange) t.targetId = target.id;
+
+  // steering
+  let desiredA = t.bodyA;
+  let speedMul = 0.85;
+  if(t.targetId === target.id){
+    desiredA = Math.atan2(target.y - t.y, target.x - t.x);
+    speedMul = 1.0;
+  } else {
+    // wander
+    if(!t.wanderT || now() > t.wanderT){
+      t.wanderT = now() + 800 + Math.random()*1200;
+      t.wanderA = Math.random()*Math.PI*2;
+    }
+    desiredA = t.wanderA;
+    speedMul = 0.55;
+  }
+
+  // avoid obstacles by sampling forward
+  const look = 28;
+  const fx = t.x + Math.cos(t.bodyA)*look;
+  const fy = t.y + Math.sin(t.bodyA)*look;
+  let blocked = false;
+  for(const ob of STATE.obstacles){
+    if(rectHit(fx,fy, 14, ob)){ blocked=true; break; }
+  }
+  if(blocked){
+    desiredA += (Math.random()<0.5? -1:1) * (0.9 + Math.random()*0.6);
+  }
+
+  // turn towards desired
+  const turnRate = 2.4 * dt;
+  t.bodyA = turnToward(t.bodyA, desiredA, turnRate);
+
+  // move
+  const sp = t.def.speed * 120 * speedMul * aggro;
+
+  const tracked = (t.immobilizedUntil && now() < t.immobilizedUntil);
+  if(tracked){
+    t.vx *= 0.85;
+    t.vy *= 0.85;
+  } else {
+    t.vx += Math.cos(t.bodyA) * sp * dt;
+    t.vy += Math.sin(t.bodyA) * sp * dt;
+  }
+
+  // turret aims at target with noise
+  const tx = target.x, ty = target.y;
+  let aimA = Math.atan2(ty - t.y, tx - t.x);
+  // add slight inaccuracy
+  aimA += (Math.random()-0.5) * aimHelp;
+  t.turretA = turnToward(t.turretA, aimA, 4.2*dt);
+
+  // shoot if can and near-ish
+  if(inRange && t.reload<=0 && (!t.aiReadyAt || now()>=t.aiReadyAt)){
+    const da = Math.abs(angleDiff(t.turretA, aimA));
+    if(da < 0.18){ // must be more on target (less laser-aim)
+      fire(t);
+    }
+  }
+}
+
+function turnToward(a, b, maxDelta){
+  const d = angleDiff(b,a);
+  const step = clamp(d, -maxDelta, maxDelta);
+  return a + step;
+}
+
+/* ===== Objectives ===== */
+function updateObjectives(dt){
+  const mode = STATE.mode;
+
+  // Capture base
+  if(mode==="CAPTURE"){
+    for(const base of STATE.bases){
+      // if enemies in your base -> capture progress for ENEMY, and vice versa
+      const r2 = base.r*base.r;
+      let youIn=0, enIn=0;
+      for(const e of STATE.entities){
+        if(!e.alive || e.type!=="tank") continue;
+        if(dist2(e.x,e.y, base.x,base.y) <= r2){
+          if(e.team==="YOU") youIn++;
+          else enIn++;
+        }
+      }
+      // progress
+      const rate = 0.15; // per second
+      if(base.team==="YOU"){
+        if(enIn>0 && youIn===0) base.cap = clamp(base.cap + rate*dt, 0, 1);
+        else base.cap = clamp(base.cap - rate*0.8*dt, 0, 1);
+        if(base.cap>=1){ STATE.lose=true; STATE.win=false; endGame("Base captured!", "Enemy captured your base."); }
+      } else {
+        if(youIn>0 && enIn===0) base.cap = clamp(base.cap + rate*dt, 0, 1);
+        else base.cap = clamp(base.cap - rate*0.8*dt, 0, 1);
+        if(base.cap>=1){ STATE.win=true; STATE.lose=false; endGame("Victory!", "You captured the enemy base."); }
+      }
+    }
+  }
+
+  // Domination zones
+  if(mode==="DOM"){
+    for(const z of STATE.zones){
+      const r2 = z.r*z.r;
+      let youIn=0, enIn=0;
+      for(const e of STATE.entities){
+        if(!e.alive || e.type!=="tank") continue;
+        if(dist2(e.x,e.y, z.x,z.y) <= r2){
+          if(e.team==="YOU") youIn++;
+          else enIn++;
+        }
+      }
+      const rate = 0.18;
+      if(youIn>0 && enIn===0){
+        z.progress = clamp(z.progress + rate*dt, -1, 1);
+      } else if(enIn>0 && youIn===0){
+        z.progress = clamp(z.progress - rate*dt, -1, 1);
+      } else {
+        // drift to current owner slowly
+        z.progress = lerp(z.progress, z.owner==="YOU"? 1 : z.owner==="ENEMY"? -1 : 0, 0.6*dt);
+      }
+      if(z.progress>=1){ z.owner="YOU"; }
+      if(z.progress<=-1){ z.owner="ENEMY"; }
+
+      // scoring from ownership
+      if(z.owner==="YOU") STATE.scoreYou += 0.25*dt;
+      if(z.owner==="ENEMY") STATE.scoreEnemies += 0.25*dt;
+    }
+
+    // win condition by points
+    if(STATE.scoreYou>=25){ STATE.win=true; endGame("Victory!", "You reached 25 domination points."); }
+    if(STATE.scoreEnemies>=25){ STATE.lose=true; endGame("Defeat", "Enemies reached 25 domination points."); }
+  }
+}
+
+/* ===== Fire / Damage ===== */
+function fire(t){
+  const st = shellStats(t.def.shell);
+  const muzzle = 18;
+  const x = t.x + Math.cos(t.turretA)*muzzle;
+  const y = t.y + Math.sin(t.turretA)*muzzle;
+
+  // Dispersion: AI is less accurate than a good player (fairness).
+  // Player gets tight dispersion; enemies get wider; allies in-between.
+  const isPlayer = (STATE.player && t.id===STATE.player.id);
+  const spread = isPlayer ? 0.015 : (t.team==="ENEMY" ? 0.070 : 0.045);
+  const shotAng = t.turretA + (Math.random()-0.5)*spread;
+
+  STATE.bullets.push(spawnBullet(t, x,y, shotAng, st.speed*120, st.dmg * (t.def.gunMul||1), st.pen, t.def.shell));
+  t.reload = reloadForTank(t.def);
+
+  // recoil / puff
+  explode(x,y, 10);
+}
+
+function applyDamage(target, bullet){
+  // Determine hit direction relative to target body to approximate FRONT / SIDE / REAR hits
+  const incoming = bullet.ang + Math.PI; // direction from target toward shooter
+  const da = angleDiff(target.bodyA, incoming);
+  const absDa = Math.abs(da);
+
+  let dirZone = "SIDE";
+  if(absDa < Math.PI/4) dirZone = "FRONT";
+  else if(absDa > 3*Math.PI/4) dirZone = "REAR";
+
+  // ---- Part / weakspot selection (probability-based, WoT-ish) ----
+  // We pick a "hit part" based on direction. Some parts are weakspots (take more damage).
+  // This applies to BOTH you and enemies.
+  let part = dirZone; // default part matches direction
+
+  const r = Math.random();
+  if(dirZone==="FRONT"){
+    // Mostly strong upper plate; sometimes you hit a weak lower plate or cupola
+    if(r < 0.10) part = "LOWER_PLATE";     // weakspot
+    else if(r < 0.14) part = "CUPOLA";     // weakspot (small)
+    else if(r < 0.30) part = "TURRET";     // turret area
+    else part = "UPPER_PLATE";             // strong
+  } else if(dirZone==="SIDE"){
+    // Sides can hide ammo rack / tracks / turret side
+    if(r < 0.12) part = "AMMO_RACK";       // weakspot
+    else if(r < 0.26) part = "TRACKS";     // low damage / mobility hit (simplified)
+    else if(r < 0.44) part = "TURRET";     // turret
+    else part = "SIDE_PLATE";
+  } else { // REAR
+    // Rear/engine deck is vulnerable
+    if(r < 0.18) part = "ENGINE";          // weakspot
+    else if(r < 0.30) part = "AMMO_RACK";  // weakspot (rear rack)
+    else if(r < 0.42) part = "TURRET";
+    else part = "REAR_PLATE";
+  }
+
+  // ---- Armor & damage tuning by part ----
+  const baseArmor = target.def.armor;
+
+  // Armor multiplier per part (lower = easier to pen)
+  const partArmorMul = ({
+    // Front
+    "UPPER_PLATE": 1.35,
+    "LOWER_PLATE": 0.85,
+    "CUPOLA":      0.75,
+
+    // Side
+    "SIDE_PLATE":  0.95,
+    "TRACKS":      1.05, // track absorbs/angles; not a weakspot
+    "AMMO_RACK":   0.90,
+
+    // Rear
+    "REAR_PLATE":  0.78,
+    "ENGINE":      0.80,
+
+    // Turret
+    "TURRET":      1.15,
+  }[part] ?? 1.0);
+
+  // Damage multiplier per part (weakspots take more damage)
+  const partDmgMul = ({
+    // Weakspots
+    "LOWER_PLATE": 1.08,
+    "CUPOLA":      1.15,
+    "AMMO_RACK":   1.25,
+    "ENGINE":      1.20,
+
+    // Not weakspots
+    "TRACKS":      0.45,
+    "UPPER_PLATE": 0.98,
+    "SIDE_PLATE":  1.00,
+    "REAR_PLATE":  1.10,
+    "TURRET":      0.95,
+  }[part] ?? 1.0);
+
+  // Crit chance per part (ammo rack/engine more likely)
+  const partCritChance = ({
+    "AMMO_RACK": 0.28,
+    "ENGINE":    0.22,
+    "CUPOLA":    0.12,
+    "LOWER_PLATE":0.10,
+    "REAR_PLATE":0.16,
+    "SIDE_PLATE":0.12,
+    "TURRET":    0.08,
+    "UPPER_PLATE":0.06,
+    "TRACKS":    0.04,
+  }[part] ?? 0.10);
+
+  // Effective armor: base angling effect * part multiplier
+  const anglingArmor = effectiveArmor(target, bullet.ang);
+  const armorEff = Math.max(1, (anglingArmor * partArmorMul));
+
+  // If not enough penetration: mostly bounce.
+  // IMPORTANT: Front is very strong: only ~3% chance to "chip" through on strong front plates.
+  // Weakspots (lower plate/cupola) allow more damage.
+  const isStrongFront = (part==="UPPER_PLATE" || part==="TURRET") && dirZone==="FRONT";
+  const chipChance =
+    (part==="CUPOLA") ? 0.22 :
+    (part==="LOWER_PLATE") ? 0.16 :
+    (part==="AMMO_RACK") ? 0.14 :
+    (part==="ENGINE") ? 0.18 :
+    (part==="SIDE_PLATE") ? 0.12 :
+    (part==="REAR_PLATE") ? 0.22 :
+    (part==="TRACKS") ? 0.10 :
+    (isStrongFront) ? 0.03 :
+    (dirZone==="FRONT") ? 0.06 : 0.12;
+
+  let dmg = bullet.damage * (STATE.damageMult || 6); // damage multiplier (default 6x)
+if(bullet.pen < armorEff){
+    if(Math.random() < chipChance){
+      // tiny "spall / chip" damage
+      dmg *= 0.18;
+      explode(target.x, target.y, 14);
+    } else {
+      // bounce = no damage
+      dmg = 0;
+      explode(target.x, target.y, 10);
+    }
+  } else {
+    // penetration: full damage scaled by hit part
+    dmg *= partDmgMul;
+
+    // critical/module hit chance
+    if(Math.random() < partCritChance){
+      dmg *= 1.18;
+      explode(target.x, target.y, 26);
+    } else {
+      explode(target.x, target.y, 20);
+    }
+  }
+
+  
+  // If tracks were hit: 20% chance to immobilize for a short time (both you and enemy)
+  if(part==="TRACKS" && dmg > 0){
+    if(Math.random() < 0.20){
+      const dur = trackStunMs(target.def);
+      target.immobilizedUntil = Math.max(target.immobilizedUntil || 0, now() + dur);
+    }
+  }
+
+  if(dmg <= 0) return;
+
+  target.hp -= dmg;
+
+  if(target.hp <= 0 && target.alive){
+    target.alive = false;
+    explode(target.x,target.y, 60);
+
+    if(bullet.team==="YOU") STATE.scoreYou += 1;
+    if(bullet.team==="ENEMY") STATE.scoreEnemies += 1;
+
+    // if all enemies dead -> win (except free roam/training)
+    if(["FREEROAM","TRAINING"].includes(STATE.mode)) return;
+    if(countAlive("ENEMY")===0){ STATE.win=true; endGame("Victory!", "All enemy tanks destroyed."); }
+    if(!STATE.player.alive){ STATE.lose=true; endGame("Defeat", "Your tank was destroyed."); }
+  }
+}
+/* ===== Online Multiplayer (WebSocket) — ONLINE 1v1 + ONLINE 2v2 (Render) =====
+   Host-authoritative:
+   - Server matches players by (mode,tier)
+   - First player in the room is HOST and runs simulation
+   - Others are CLIENTS (send inputs, receive snapshots)
+   - Online never uses split-screen (each player has their own screen)
+*/
+
+const NET = {
+  ws: null,
+  connected: false,
+  id: null,
+  roomId: null,
+  hostId: null,
+  host: false,
+  mode: "ONLINE1V1",
+  tier: 1,
+  roomPlayers: [], // [{id,tankName}]
+  remoteInputs: {}, // host: id -> latest input
+  _sendNext: 0,
+  _firePrev: false,
+  _lastSnapshotAt: 0,
+};
+
+function wsURL(){
+  // Render: websocket is SAME origin as the page
+  const proto = (location.protocol==="https:") ? "wss" : "ws";
+  return `${proto}://${location.host}`;
+}
+
+function netDisconnect(){
+  try{ NET.ws && NET.ws.close(); }catch(_){}
+  NET.ws = null;
+  NET.connected = false;
+  NET.roomId = null;
+  NET.hostId = null;
+  NET.host = false;
+  NET.roomPlayers = [];
+  NET.remoteInputs = {};
+  NET._sendNext = 0;
+  NET._firePrev = false;
+  NET._lastSnapshotAt = 0;
+}
+
+function netSend(obj){
+  if(!NET.ws || NET.ws.readyState!==1) return;
+  NET.ws.send(JSON.stringify(obj));
+}
+
+function netClientGatherAndSend(){
+  if(now() < NET._sendNext) return;
+  NET._sendNext = now() + 50; // ~20Hz
+
+  const p = STATE.player;
+  if(!p) return;
+
+  const up = keys.has("w") || keys.has("arrowup");
+  const dn = keys.has("s") || keys.has("arrowdown");
+  const lt = keys.has("a") || keys.has("arrowleft");
+  const rt = keys.has("d") || keys.has("arrowright");
+  const boost = keys.has("shift");
+
+  let aimA = p.turretA || 0;
+  if(mouse){
+    aimA = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  }
+
+  const fireDown = (mouse.down || keys.has(" "));
+  const firePressed = fireDown && !NET._firePrev;
+  NET._firePrev = fireDown;
+
+  netSend({ type:"input", payload:{ up,dn,lt,rt,boost,aimA,fire:firePressed } });
+}
+
+function netHostApplyRemoteInputss(dt){
+  if(!(STATE.netEnabled && STATE.netRole==="host")) return;
+
+  for(const e of STATE.entities){
+    if(e.type!=="tank" || !e.alive) continue;
+    if(!e.clientId || e.clientId===NET.id) continue;
+
+    const inp = NET.remoteInputs[e.clientId];
+    if(!inp) continue;
+
+    const up = !!inp.up, dn = !!inp.dn, lt = !!inp.lt, rt = !!inp.rt;
+    const turn = 2.8;
+    const accel = e.def.speed * 140 * (inp.boost?1.35:1.0);
+
+    if(lt) e.bodyA -= turn*dt;
+    if(rt) e.bodyA += turn*dt;
+
+    const dir = (up?1:0) + (dn?-1:0);
+
+    const tracked = (e.immobilizedUntil && now() < e.immobilizedUntil);
+    if(tracked){
+      e.vx *= 0.85; e.vy *= 0.85;
+    } else if(dir!==0){
+      e.vx += Math.cos(e.bodyA) * accel * dir * dt;
+      e.vy += Math.sin(e.bodyA) * accel * dir * dt;
+    }
+
+    if(Number.isFinite(inp.aimA)){
+      e.turretA = turnToward(e.turretA, inp.aimA, 6.2*dt);
+    }
+
+    if(inp.fire && e.reload<=0){
+      fire(e);
+    }
+    inp.fire = false;
+  }
+}
+
+function netHostSendSnapshot(){
+  if(!(STATE.netEnabled && STATE.netRole==="host")) return;
+  if(now() < (STATE.netSnapNext||0)) return;
+  STATE.netSnapNext = now() + 80; // ~12.5Hz
+
+  const ents = STATE.entities.filter(e=>e.type==="tank").map(e=>({
+    id: e.id,
+    clientId: e.clientId || null,
+    side: e.side || null,
+    x: e.x, y: e.y,
+    bodyA: e.bodyA,
+    turretA: e.turretA,
+    hp: e.hp,
+    alive: e.alive,
+    imm: (e.immobilizedUntil && now()<e.immobilizedUntil) ? 1 : 0,
+    name: e.def?.name || ""
+  }));
+
+  const bullets = (STATE.bullets||[]).map(b=>({x:b.x,y:b.y,ang:b.ang,vx:b.vx,vy:b.vy,team:b.team, shell:b.shell }));
+  netSend({ type:"snapshot", payload:{ ents, bullets, t: now() } });
+}
+
+function applyInitFromHost(payload){
+  resetGame();
+  STATE.mode = payload.mode || "ONLINE1V1";
+  STATE.world = payload.world || STATE.world;
+  STATE.obstacles = payload.obstacles || [];
+  STATE.zones = payload.zones || [];
+  STATE.bases = payload.bases || null;
+
+  const players = payload.players || [];
+  const myId = NET.id;
+  const mySide = players.find(p=>p.id===myId)?.side || "A";
+  STATE.mySide = mySide;
+
+  for(const pl of players){
+    const def = ROSTER.find(d=>d.name===pl.tankName) || ROSTER[0];
+    const t = spawnTank(def, "YOU", pl.x, pl.y, false);
+    t.clientId = pl.id;
+    t.side = pl.side;
+    t.playerName = pl.username || pl.name || pl.id;
+
+    if(pl.id===myId) t.team="YOU";
+    else if((STATE.mode==="ONLINE2V2") && pl.side===mySide) t.team="ALLY";
+    else t.team="ENEMY";
+
+    STATE.entities.push(t);
+    if(pl.id===myId) STATE.player = t;
+  }
+
+  STATE.netEnabled = true;
+  STATE.netRole = "client";
+  STATE.running = true;
+  STATE.paused = false;
+  STATE.win = STATE.lose = false;
+  hideCenter();
+}
+
+function applySnapshotFromHost(payload){
+  if(!payload) return;
+  NET._lastSnapshotAt = now();
+
+  const myId = NET.id;
+  const mySide = STATE.mySide || "A";
+
+  const idToEnt = new Map(STATE.entities.filter(e=>e.type==="tank").map(e=>[e.id,e]));
+  for(const se of (payload.ents||[])){
+    let e = idToEnt.get(se.id);
+    if(!e){
+      const def = ROSTER.find(d=>d.name===se.name) || ROSTER[0];
+      e = spawnTank(def, "YOU", se.x, se.y, false);
+      e.id = se.id;
+      e.clientId = se.clientId || null;
+      e.side = se.side || null;
+      STATE.entities.push(e);
+      idToEnt.set(se.id,e);
+    }
+    e.x = se.x; e.y = se.y;
+    e.bodyA = se.bodyA; e.turretA = se.turretA;
+    e.hp = se.hp; e.alive = !!se.alive;
+    e.clientId = se.clientId || e.clientId;
+    e.side = se.side || e.side;
+
+    if(e.clientId===myId){ e.team="YOU"; STATE.player = e; }
+    else if((STATE.mode==="ONLINE2V2") && e.side && e.side===mySide){ e.team="ALLY"; }
+    else { e.team="ENEMY"; }
+
+    if(se.imm) e.immobilizedUntil = now() + 200;
+  }
+
+  STATE.bullets = (payload.bullets||[]).map(b=>({
+    x:b.x,y:b.y,ang:b.ang,vx:b.vx,vy:b.vy,
+    team:b.team, shell:b.shell,
+    dmg:0, pen:0,
+    ownerName:""
+  }));
+}
+
+function startOnlineHost(chosenMode){
+  resetGame();
+  STATE.mode = chosenMode;
+  startGame();
+  STATE.netEnabled = true;
+  STATE.netRole = "host";
+  STATE.mySide = "A";
+}
+
+function buildOnlineInitPayload(chosenMode){
+  const players = NET.roomPlayers || [];
+  const W = STATE.world.w, H = STATE.world.h;
+
+  const spawns1v1 = [
+    {side:"A", x: W*0.18, y: H*0.50},
+    {side:"B", x: W*0.82, y: H*0.50},
+  ];
+  const spawns2v2 = [
+    {side:"A", x: W*0.18, y: H*0.40},
+    {side:"A", x: W*0.18, y: H*0.60},
+    {side:"B", x: W*0.82, y: H*0.40},
+    {side:"B", x: W*0.82, y: H*0.60},
+  ];
+  const spawnsPVP = [
+    {side:"A", x: W*0.18, y: H*0.35},
+    {side:"A", x: W*0.18, y: H*0.50},
+    {side:"A", x: W*0.18, y: H*0.65},
+    {side:"B", x: W*0.82, y: H*0.35},
+    {side:"B", x: W*0.82, y: H*0.50},
+    {side:"B", x: W*0.82, y: H*0.65},
+  ];
+
+
+
+  const spawns = (chosenMode==="ONLINE2V2") ? spawns2v2 : spawns1v1
+
+  // wipe tanks and rebuild
+  STATE.entities = STATE.entities.filter(e=>e.type!=="tank");
+  STATE.bullets = [];
+  let pHost = null;
+
+  const payloadPlayers = [];
+  for(let i=0;i<players.length;i++){
+    const pl = players[i];
+    const spawn = spawns[i] || spawns[0];
+    const def = ROSTER.find(d=>d.name===pl.tankName) || ROSTER[0];
+
+    const tank = spawnTank(def, "YOU", spawn.x, spawn.y, false);
+    tank.clientId = pl.id;
+    tank.side = spawn.side;
+    tank.playerName = pl.username || pl.name || pl.id;
+
+    if(pl.id===NET.id){ tank.team="YOU"; pHost = tank; }
+    else if((chosenMode==="ONLINE2V2") && spawn.side==="A"){ tank.team="ALLY"; }
+    else { tank.team="ENEMY"; }
+
+    STATE.entities.push(tank);
+
+    payloadPlayers.push({ id: pl.id, tankName: pl.tankName, username: pl.username || pl.name || pl.id, side: spawn.side, x: spawn.x, y: spawn.y });
+  }
+
+  STATE.player = pHost || null;
+
+  return {
+    mode: chosenMode,
+    world: STATE.world,
+    obstacles: STATE.obstacles || [],
+    zones: STATE.zones || [],
+    bases: STATE.bases || null,
+    players: payloadPlayers
+  };
+}
+
+function getUsername(){
+  try{
+    const inp = (typeof userNameInp!=="undefined") ? userNameInp : null;
+    let n = (inp && inp.value ? inp.value : "").trim();
+    if(!n){
+      n = localStorage.getItem("wot_username") || ("Player" + Math.floor(Math.random()*900+100));
+    }
+    n = n.replace(/[^a-zA-Z0-9_\- ]/g,"").slice(0,16);
+    if(inp) inp.value = n;
+    localStorage.setItem("wot_username", n);
+    return n;
+  }catch(e){
+    return "Player";
+  }
+}
+async function beginOnlineBattle(){
+  const chosenMode = modeSel.value; // ONLINE1V1 or ONLINE2V2
+  NET.mode = chosenMode;
+  NET.tier = Number(tierSel?.value||1);
+
+  const mapName = mapSel.options[mapSel.selectedIndex]?.textContent || "Random Map";
+  if(loadMapName) loadMapName.textContent = (chosenMode==="ONLINEPVP" ? "Online PvP • " : (chosenMode==="ONLINE2V2" ? "Online 2v2 • " : "Online 1v1 • ")) + mapName;
+  if(loadModeName) loadModeName.textContent = "Mode: " + (chosenMode==="ONLINEPVP" ? "Online PvP" : (chosenMode==="ONLINE2V2" ? "Online 2v2" : "Online 1v1"));
+  if(loadTip) loadTip.textContent = "Connecting…";
+  setUIMode("LOADING");
+  if(loadBar) loadBar.style.width = "18%";
+
+  netDisconnect();
+
+  return new Promise((resolve)=>{
+    try{
+      NET.ws = new WebSocket(wsURL());
+    }catch(err){
+      showCenter("Online Error", "Could not create WebSocket. Open the Render URL (https://...) not a local file.");
+      setUIMode("MENU");
+      resolve();
+      return;
+    }
+
+    NET.ws.onopen = ()=>{
+      NET.connected = true;
+      if(loadBar) loadBar.style.width = "40%";
+      const tankName = getSelectedTankDef()?.name || ROSTER[0].name;
+      const username = getUsername();
+      netSend({ type:"join", tier: NET.tier, tankName, mode: NET.mode, username });
+    };
+
+    NET.ws.onmessage = (ev)=>{
+      let msg = null;
+      try{ msg = JSON.parse(ev.data); }catch(_){ return; }
+
+      if(msg.type==="welcome"){ NET.id = msg.id; }
+
+      if(msg.type==="roomInfo"){
+        NET.roomId = msg.roomId;
+        NET.hostId = msg.hostId;
+        NET.host = (NET.hostId === NET.id);
+        NET.roomPlayers = msg.players || [];
+        if(loadTip) loadTip.textContent = msg.text || "Matchmaking…";
+      }
+
+      if(msg.type==="hostStart" && NET.host){
+        if(loadBar) loadBar.style.width = "82%";
+        startOnlineHost(chosenMode);
+        if(loadBar) loadBar.style.width = "92%";
+        const initPayload = buildOnlineInitPayload(chosenMode);
+        netSend({ type:"init", payload: initPayload });
+
+        battleInfo.textContent = `${chosenMode==="ONLINEPVP"?"Online PvP":(chosenMode==="ONLINE2V2"?"Online 2v2":"Online 1v1")} • ${STATE.world?.name||"Battlefield"}`;
+        setUIMode("BATTLE");
+        doCountdown().then(()=>resolve());
+      }
+
+      if(msg.type==="init"){
+        if(loadBar) loadBar.style.width = "90%";
+        applyInitFromHost(msg.payload);
+        battleInfo.textContent = `${chosenMode==="ONLINEPVP"?"Online PvP":(chosenMode==="ONLINE2V2"?"Online 2v2":"Online 1v1")} • ${msg.payload.world?.name||"Battlefield"}`;
+        setUIMode("BATTLE");
+        doCountdown().then(()=>resolve());
+      }
+
+      if(msg.type==="snapshot"){
+        if(STATE.netRole==="client"){ applySnapshotFromHost(msg.payload); }
+      }
+
+      if(msg.type==="input"){
+        if(STATE.netRole==="host"){
+          const from = msg.fromId;
+          if(from) NET.remoteInputs[from] = Object.assign(NET.remoteInputs[from]||{}, msg.payload||{});
+        }
+      }
+
+      if(msg.type==="info"){
+        if(loadTip) loadTip.textContent = msg.text || "…";
+      }
+    };
+
+    NET.ws.onclose = ()=>{
+      if(STATE.netEnabled){
+        showCenter("Disconnected", "The online match ended. Returning to Garage.");
+      }
+      netDisconnect();
+      STATE.netEnabled = false;
+      STATE.running = false;
+      setUIMode("MENU");
+      updateMenuCoins();
+      resolve();
+    };
+  });
+}
+
+
+
+/* ===== Game Flow ===== */
+document.getElementById("startBtn").addEventListener("click", ()=> startGame());
+document.getElementById("resetBtn").addEventListener("click", ()=> resetGame());
+
+
+if(buyBtn) buyBtn.addEventListener("click", ()=>{
+  const t = getSelectedTankDef();
+  if(!t) return;
+  if(tryBuy(t)){
+    populateTanks();
+    tankSel.value = t.name;
+    updateTankStats();
+    showCenter("Purchased!", `You bought <b>${t.name}</b> for <b>${t.price.toLocaleString()}</b> coins.`);
+    setTimeout(hideCenter, 900);
+  }
+});
+
+
+function resetGame(){
+  STATE.rewarded = false;
+  STATE.running=false;
+  STATE.paused=false;
+  hideCenter();
+  STATE.entities=[]; STATE.bullets=[]; STATE.particles=[];
+  STATE.scoreYou=0; STATE.scoreEnemies=0;
+  STATE.win=false; STATE.lose=false;
+  STATE.firePrev=false;
+  STATE.firePrev2=false;
+  STATE.pvp2Id=null;
+  STATE.coopAllyId=null;
+}
+
+function startGame(){
+  // If the selected tank is locked, don't start.
+  const tankDef = getSelectedTankDef();
+  if(!isOwned(tankDef)){
+    showCenter('Locked Tank', `You haven't bought <b>${tankDef.name}</b> yet.<div style="margin-top:8px;">Pick an <b>OWNED</b> Tier 1 tank, or buy this one.</div>`);
+    return;
+  }
+
+  resetGame();
+
+  // Use owned tank
+  
+  const mapName = mapSel.value;
+  const map = MAPS.find(m=>m.name===mapName) || MAPS[0];
+  const mode = modeSel.value;
+  const diff = diffSel.value;
+
+  // Historical mode locks tier to era (simple rule)
+  let chosen = tankDef;
+  if(mode==="HISTORICAL"){
+    // decide era by map env (just for fun)
+    // Desert/Urban/Forest => WWII/Cold War; Snow/Jungle/Beach => WWII; else Modern
+    const prefer = (map.env==="Snow"||map.env==="Jungle"||map.env==="Beach") ? 2 : (map.env==="Urban" ? 3 : 2);
+    const options = ROSTER.filter(t=>t.tier===prefer && ECON.owned.has(t.name));
+    chosen = options[Math.floor(Math.random()*options.length)] || tankDef;
+    // also set your selection to show it
+    tankSel.value = chosen.name;
+    updateTankStats();
+  }
+
+  STATE.mode = mode;
+  STATE.difficulty = diff;
+
+  makeWorld(map.name, map.env);
+
+  // spawn player
+  const px = STATE.world.w*0.18;
+  const py = STATE.world.h*0.5;
+  const player = spawnTank(chosen, "YOU", px, py, false);
+  STATE.player = player;
+  STATE.entities.push(player);
+
+  // Local 1v1: spawn Player 2 (no AI)
+  if(mode==="PVP1V1"){
+    const p2x = STATE.world.w*0.82;
+    const p2y = STATE.world.h*0.50;
+    const p2 = spawnTank(chosen, "ENEMY", p2x, p2y, false);
+    p2.isPlayer2 = true;
+    STATE.pvp2Id = p2.id;
+    STATE.entities.push(p2);
+
+    STATE.running=true;
+    STATE.t0 = now();
+    hideCenter();
+    return;
+  }
+
+  // spawn enemies / coop ally
+  let n = parseInt(aiCountSel.value,10);
+
+  // Co-op: the selector becomes ALLY AI count (excluding you).
+  // Enemy team size = allies + you.
+  if(mode==="COOP"){
+    const allyN = Math.max(0, n|0);
+    const enemyN = allyN + 1;
+
+    // spawn allies near you
+    const candAlly = ROSTER.filter(t => t.tier===player.def.tier);
+    for(let i=0;i<allyN;i++){
+      const ax = STATE.world.w*(0.20 + Math.random()*0.08);
+      const ay = STATE.world.h*(0.42 + Math.random()*0.18);
+      const adef = candAlly[Math.floor(Math.random()*candAlly.length)] || chosen;
+      const ally = spawnTank(adef, "YOU", ax, ay, true);
+      ally.isAlly = true;
+      ally.followSlot = i;
+      STATE.entities.push(ally);
+    }
+    STATE.coopAllyId = STATE.entities.find(e=>e.isAlly && e.team==="YOU")?.id || null;
+
+    n = enemyN; // enemies to spawn
+  }
+
+  if(mode==="TRAINING" || mode==="FREEROAM") n = 0;
+  if(mode==="RANKED") n = Math.max(n, 10);
+
+  for(let i=0;i<n;i++){
+    const ex = STATE.world.w*(0.65 + Math.random()*0.25);
+    const ey = STATE.world.h*(0.15 + Math.random()*0.70);
+
+    // Same-tier matchmaking
+    const enemyTier = player.def.tier;
+    const candidates = ROSTER.filter(t => t.tier===enemyTier);
+    const edef = candidates[Math.floor(Math.random()*candidates.length)] || ROSTER[Math.floor(Math.random()*ROSTER.length)];
+
+    const e = spawnTank(edef, "ENEMY", ex, ey, true);
+    STATE.entities.push(e);
+  }
+
+
+STATE.running=true;
+  STATE.t0 = now();
+  hideCenter();
+}
+
+function togglePause(){
+  if(!STATE.running) return;
+  STATE.paused = !STATE.paused;
+  if(STATE.paused){
+    showCenter("Paused", `Press <span class="kbd">Esc</span> to resume.`);
+  } else {
+    hideCenter();
+    // prevent time jump
+    lastT = now();
+  }
+}
+
+function endGame(title, body){
+  if(["TRAINING","FREEROAM"].includes(STATE.mode)) return;
+  // Reward coins on victory (auto-saved)
+  if(STATE.win && !STATE.rewarded){
+    STATE.rewarded = true;
+    ECON.coins += WIN_REWARD;
+    renderCoins();
+    saveGame();
+    body += `<div style="margin-top:8px;"><b>+${WIN_REWARD.toLocaleString()} coins</b> (Win Reward)</div>`;
+  }
+  showCenter(title, `${body}<div style="margin-top:10px;">Click <b>Start Game</b> to play again.</div>`);
+  STATE.running=false;
+}
+
+const center = document.getElementById("centerMsg");
+const msgTitle = document.getElementById("msgTitle");
+const msgBody = document.getElementById("msgBody");
+function showCenter(t,b){
+  msgTitle.textContent = t;
+  msgBody.innerHTML = b;
+  center.style.display="flex";
+}
+function hideCenter(){ center.style.display="none"; }
+
+/* ===== Count alive ===== */
+function countAlive(team){
+  return STATE.entities.filter(e=>e.type==="tank" && e.team===team && e.alive).length;
+}
+
+/* ===== Main Loop ===== */
+let lastT = now();
+function loop(){
+  requestAnimationFrame(loop);
+  resize();
+
+  const t = now();
+  const dt = Math.min(0.033, (t-lastT)/1000);
+  lastT = t;
+
+  if(STATE.running && !STATE.paused){
+    if(STATE.netEnabled && STATE.netRole==="client"){
+      netClientGatherAndSend();
+      // no physics on client; render last snapshot
+      render();
+    } else {
+      if(STATE.netEnabled && STATE.netRole==="host") netHostApplyRemoteInputss(dt);
+      step(dt);
+      // host sends snapshots for online matches
+      netHostSendSnapshot();
+      render();
+    }
+  } else {
+    render(); // still draw menu/pause screen view
+  }
+}
+requestAnimationFrame(loop);
+
+function step(dt){
+  // time
+  STATE.elapsed += dt;
+
+
+  // radar spotting updates
+  if(now() >= (STATE.radarNext||0)){
+    radarPing();
+    STATE.radarNext = now() + RADAR_PING_MS;
+  }
+
+  // player control
+  const p = STATE.player;
+  if(p && p.alive){
+    const up = keys.has("w") || keys.has("arrowup");
+    const dn = keys.has("s") || keys.has("arrowdown");
+    const lt = keys.has("a") || keys.has("arrowleft");
+    const rt = keys.has("d") || keys.has("arrowright");
+    const boost = keys.has("shift");
+    const turn = 2.8;
+    const accel = p.def.speed * 140 * (boost?1.35:1.0);
+
+    // rotate body
+    if(lt) p.bodyA -= turn*dt;
+    if(rt) p.bodyA += turn*dt;
+
+    // move forward/back
+    const dir = (up?1:0) + (dn?-1:0);
+
+    const tracked = (p.immobilizedUntil && now() < p.immobilizedUntil);
+    if(tracked){
+      // can't move while tracked
+      p.vx *= 0.85;
+      p.vy *= 0.85;
+    } else if(dir!==0){
+      p.vx += Math.cos(p.bodyA) * accel * dir * dt;
+      p.vy += Math.sin(p.bodyA) * accel * dir * dt;
+    }
+
+    // turret aim towards mouse world (split-screen aware)
+    const vw1 = (STATE.mode==="PVP1V1") ? Math.floor(canvas.clientWidth/2) : canvas.clientWidth;
+    const vh1 = canvas.clientHeight;
+    const cam = (STATE.mode==="PVP1V1") ? getCameraFor(p, vw1, vh1) : getCamera();
+
+    // In split-screen, P1 uses the LEFT half. If your mouse is on the right, we clamp it to the left half.
+    const localX = (STATE.mode==="PVP1V1") ? clamp(mouse.x, 0, vw1) : mouse.x;
+    const localY = mouse.y;
+
+    const mxw = cam.x + localX;
+    const myw = cam.y + localY;
+    const aimA = Math.atan2(myw - p.y, mxw - p.x);
+    p.turretA = turnToward(p.turretA, aimA, 6.2*dt);
+
+    // shoot (one shot per reload — no auto-fire when holding)
+    const fireDown = (mouse.down || keys.has(" "));
+    const firePressed = fireDown && !STATE.firePrev; // only on press
+    STATE.firePrev = fireDown;
+
+    if(firePressed && p.reload<=0){
+      fire(p);
+    }
+// training respawn
+    if(STATE.mode==="TRAINING" && keys.has("r")){
+      p.hp = p.def.hpMax;
+      p.alive = true;
+      p.x = STATE.world.w*0.18;
+      p.y = STATE.world.h*0.5;
+      p.vx = p.vy = 0;
+    }
+  }
+
+  // Player 2 control (Local 1v1 / Online host uses remote input)
+  // If this is an online host match, apply remote player's input here:
+  if(STATE.netEnabled && STATE.netRole==="host"){
+    netHostApplyRemoteInputs(dt);
+  }
+  // Local keyboard control below only runs when NOT in online host mode.
+
+  if(STATE.mode==="PVP1V1" && STATE.pvp2Id && !STATE.netEnabled){
+    const p2 = STATE.entities.find(e => e.id===STATE.pvp2Id);
+    const p1 = STATE.player;
+    if(p2 && p2.alive){
+      // P2 movement: I/K forward/back, J/L turn
+      const up2 = keys.has("i");
+      const dn2 = keys.has("k");
+      const lt2 = keys.has("j");
+      const rt2 = keys.has("l");
+
+      const turn2 = 2.8;
+      const accel2 = p2.def.speed * 140;
+
+      if(lt2) p2.bodyA -= turn2*dt;
+      if(rt2) p2.bodyA += turn2*dt;
+
+      const dir2 = (up2?1:0) + (dn2?-1:0);
+
+      const tracked2 = (p2.immobilizedUntil && now() < p2.immobilizedUntil);
+      if(tracked2){
+        p2.vx *= 0.85;
+        p2.vy *= 0.85;
+      } else if(dir2!==0){
+        p2.vx += Math.cos(p2.bodyA) * accel2 * dir2 * dt;
+        p2.vy += Math.sin(p2.bodyA) * accel2 * dir2 * dt;
+      }
+
+      // P2 turret aim: U/O rotate turret left/right (keyboard aim)
+      const tTurn = 5.2;
+      if(keys.has("u")) p2.turretA -= tTurn*dt;
+      if(keys.has("o")) p2.turretA += tTurn*dt;
+
+      // Helper: hold H to auto-aim at P1
+      if(keys.has("h") && p1){
+        const aimA2 = Math.atan2(p1.y - p2.y, p1.x - p2.x);
+        p2.turretA = turnToward(p2.turretA, aimA2, 6.2*dt);
+      }
+
+      // P2 shoot: press P (one shot per reload)
+      const fireDown2 = keys.has("p");
+      const firePressed2 = fireDown2 && !STATE.firePrev2;
+      STATE.firePrev2 = fireDown2;
+
+      if(firePressed2 && p2.reload<=0){
+        fire(p2);
+      }
+    }
+  }
+
+
+  // update tanks
+  for(const e of STATE.entities){
+    if(e.type!=="tank" || !e.alive) continue;
+
+    // reload timer
+    e.reload = Math.max(0, e.reload - dt*1000);
+
+    // AI
+    if(e.ai) aiStep(e, dt);
+
+    // friction
+    e.vx *= Math.pow(0.0008, dt);
+    e.vy *= Math.pow(0.0008, dt);
+
+    // clamp speed
+    const maxSp = (e.def.speed * 160);
+    const sp = Math.hypot(e.vx,e.vy);
+    if(sp>maxSp){
+      e.vx *= maxSp/sp;
+      e.vy *= maxSp/sp;
+    }
+
+    // integrate
+    e.x += e.vx*dt;
+    e.y += e.vy*dt;
+
+    // world bounds
+    e.x = clamp(e.x, 0, STATE.world.w);
+    e.y = clamp(e.y, 0, STATE.world.h);
+
+    // collision
+    resolveTankObstacles(e);
+  }
+
+  // stop tanks from clumping / overlapping
+  resolveTankOverlaps();
+
+  // bullets
+  for(const b of STATE.bullets){
+    b.x += b.vx*dt;
+    b.y += b.vy*dt;
+
+    // expire
+    if(now() - b.born > b.life) b.dead = true;
+
+    // collide with obstacles
+    for(const ob of STATE.obstacles){
+      if(b.x>ob.x && b.x<ob.x+ob.w && b.y>ob.y && b.y<ob.y+ob.h){
+        b.dead=true;
+        explode(b.x,b.y, 18);
+        break;
+      }
+    }
+    if(b.dead) continue;
+
+    // collide with tanks
+    for(const tnk of STATE.entities){
+      if(!tnk.alive || tnk.type!=="tank") continue;
+      if(tnk.team===b.team) continue;
+      let r = tankRadius(tnk.def);
+      // Aim-assist: YOUR team bullets get a slightly larger hit radius (helps vs perfect AI).
+      if(b.team==="YOU") r *= 1.12;
+      if(dist2(b.x,b.y, tnk.x,tnk.y) <= r*r){
+        b.dead = true;
+
+        // HE splash
+        const st = shellStats(b.shell);
+        if(st.splash && st.splash>10){
+          for(const other of STATE.entities){
+            if(!other.alive || other.type!=="tank") continue;
+            if(other.team===b.team) continue;
+            const d = Math.sqrt(dist2(b.x,b.y, other.x,other.y));
+            if(d < st.splash){
+              const fall = 1 - (d / st.splash);
+              const faux = {...b, damage: b.damage * (0.45 + 0.55*fall), pen: b.pen * (0.65 + 0.35*fall)};
+              applyDamage(other, faux);
+            }
+          }
+        } else {
+          applyDamage(tnk, b);
+        }
+        break;
+      }
+    }
+  }
+  STATE.bullets = STATE.bullets.filter(b=>!b.dead);
+
+  // particles
+  for(const p of STATE.particles){
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.92;
+    p.vy *= 0.92;
+    if(now()-p.born > p.life) p.dead=true;
+  }
+  STATE.particles = STATE.particles.filter(p=>!p.dead);
+
+  // objectives
+  if(!["TRAINING","FREEROAM"].includes(STATE.mode)){
+    updateObjectives(dt);
+  }
+
+  // Local 1v1 win/lose
+  if(STATE.mode==="PVP1V1" && STATE.pvp2Id){
+    const p2 = STATE.entities.find(e => e.id===STATE.pvp2Id);
+    if(STATE.player && !STATE.player.alive){
+      STATE.lose=true; endGame("Defeat", "Player 2 destroyed your tank.");
+    } else if(p2 && !p2.alive){
+      STATE.win=true; endGame("Victory!", "You destroyed Player 2.");
+    }
+  }
+
+
+  // TDM score / win
+  if(STATE.mode==="TDM" || STATE.mode==="RANKED" || STATE.mode==="HISTORICAL"){
+    if(STATE.player && !STATE.player.alive){
+      STATE.lose=true; endGame("Defeat", "Your tank was destroyed.");
+    }
+    if(countAlive("ENEMY")===0 && (STATE.entities.some(e=>e.team==="ENEMY"))){
+      STATE.win=true; endGame("Victory!", "All enemy tanks destroyed.");
+    }
+  }
+}
+
+/* ===== Rendering ===== */
+function getCameraFor(t, vw, vh){
+  if(!t) return {x:0,y:0};
+  return {
+    x: clamp(t.x - vw/2, 0, Math.max(0, STATE.world.w - vw)),
+    y: clamp(t.y - vh/2, 0, Math.max(0, STATE.world.h - vh)),
+  };
+}
+
+function getCamera(){
+  const p = STATE.player;
+  const vw = canvas.clientWidth;
+  const vh = canvas.clientHeight;
+  return getCameraFor(p, vw, vh);
+}
+
+
+function drawWorldWithCam(env, cam, vx, vy, vw, vh){
+  ctx.save();
+  // viewport clip
+  ctx.beginPath();
+  ctx.rect(vx, vy, vw, vh);
+  ctx.clip();
+
+  // move origin to viewport and then to world coords
+  ctx.translate(vx, vy);
+  ctx.translate(-cam.x, -cam.y);
+
+  // water
+  for(const wa of STATE.water){
+    ctx.beginPath();
+    ctx.fillStyle = env.water;
+    ctx.globalAlpha = 0.85;
+    ctx.arc(wa.x, wa.y, wa.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // objectives
+  drawObjectivesWorld(env);
+
+  // obstacles
+  for(const ob of STATE.obstacles){
+    let col = env.wall;
+    if(ob.kind==="tree") col = env.deco;
+    if(ob.kind==="rock"||ob.kind==="ice") col = env.wall;
+    if(ob.kind==="building"||ob.kind==="bunker"||ob.kind==="ruin") col = env.wall;
+    if(ob.kind==="crate") col = env.deco;
+
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.95;
+    ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+
+    // edge highlight
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = "#fff";
+    ctx.strokeRect(ob.x+0.5, ob.y+0.5, ob.w-1, ob.h-1);
+    ctx.globalAlpha = 1;
+  }
+
+  // bullets
+  for(const b of STATE.bullets){
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.ang);
+    ctx.fillStyle = b.team==="YOU" ? "rgba(82,255,154,.95)" : "rgba(255,90,106,.95)";
+    ctx.fillRect(-6,-2, 12, 4);
+    ctx.restore();
+  }
+
+  // tanks
+  for(const t of STATE.entities){
+    if(t.type!=="tank") continue;
+    if(!t.alive){
+      // wreck
+      ctx.save();
+      ctx.translate(t.x,t.y);
+      ctx.rotate(t.bodyA);
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = "#101018";
+      ctx.fillRect(-18,-12, 36, 24);
+      ctx.restore();
+      continue;
+    }
+    drawTank(t);
+  }
+
+  // particles
+  for(const p of STATE.particles){
+    const age = (now()-p.born)/p.life;
+    ctx.globalAlpha = (1-age)*0.9;
+    ctx.fillStyle = "rgba(0,0,0,.55)";
+    ctx.fillRect(p.x, p.y, 2, 2);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function render(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0,0,w,h);
+
+  // background
+  const env = ENV[STATE.env] || ENV.Desert;
+  ctx.fillStyle = env.ground;
+  ctx.fillRect(0,0,w,h);
+
+  // if not started, show subtle grid
+  if(!STATE.running && !STATE.player){
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    for(let x=0;x<w;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for(let y=0;y<h;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    ctx.restore();
+    drawMini();
+    drawHUD();
+    return;
+  }
+
+    // Split-screen for local 1v1
+  if(STATE.mode==="PVP1V1" && STATE.pvp2Id){
+    const p2 = STATE.entities.find(e => e.id===STATE.pvp2Id);
+    if(p2){
+      const halfW = Math.floor(w/2);
+      const cam1 = getCameraFor(STATE.player, halfW, h);
+      const cam2 = getCameraFor(p2, halfW, h);
+
+      // left view (Player 1)
+      drawWorldWithCam(env, cam1, 0, 0, halfW, h);
+
+      // divider
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      ctx.fillRect(halfW-1, 0, 2, h);
+
+      // right view (Player 2)
+      drawWorldWithCam(env, cam2, halfW, 0, w-halfW, h);
+
+      drawMini();
+      drawHUD();
+      return;
+    }
+  }
+
+  const cam = getCamera();
+
+  // single view
+  drawWorldWithCam(env, cam, 0, 0, w, h);
+
+  drawMini();
+  drawHUD();
+}
+
+function drawTank(t){
+  const r = tankRadius(t.def);
+  const bodyCol = (t.team==="YOU") ? "rgba(30,70,55,.98)" : "rgba(80,25,30,.98)";
+  const turretCol = (t.team==="YOU") ? "rgba(35,95,70,.98)" : "rgba(110,35,40,.98)";
+  const outline = "rgba(0,0,0,.35)";
+  const pat = getTankPattern(t.def);
+  const tint = (t.team==="YOU") ? "rgba(80,255,190,.20)" : "rgba(255,90,110,.20)";
+
+  // body
+  ctx.save();
+  ctx.translate(t.x,t.y);
+  ctx.rotate(t.bodyA);
+
+  ctx.fillStyle = pat;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.roundRect(-r-4, -r, (r+4)*2, r*2, 6);
+  ctx.fill();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = tint;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.stroke();
+
+  // tracks
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = "#10141a";
+  ctx.fillRect(-r-7, -r-2, 6, r*2+4);
+  ctx.fillRect(r+1, -r-2, 6, r*2+4);
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // turret
+  ctx.save();
+  ctx.translate(t.x,t.y);
+  ctx.rotate(t.turretA);
+
+  ctx.fillStyle = pat;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.roundRect(-r, -r*0.7, r*1.6, r*1.4, 7);
+  ctx.fill();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = tint;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.stroke();
+
+  // barrel
+  ctx.fillStyle = "#0f1218";
+  ctx.fillRect(r*0.7, -2, r*1.4 + 10, 4);
+
+  ctx.restore();
+
+  // name tag (only nearby)
+  const p = STATE.player;
+  if(p && dist2(t.x,t.y,p.x,p.y) < 700*700){
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.fillRect(t.x-38, t.y-r-28, 76, 18);
+    ctx.fillStyle = (t.team==="ENEMY") ? "rgba(255,90,90,.95)" : (t.isAlly ? "rgba(90,255,130,.95)" : "rgba(180,255,220,.95)");
+    ctx.font = "12px system-ui";
+    ctx.textAlign="center";
+    const tn = t.def.name.split(" (")[0];
+    const pn = (t.playerName||"").trim();
+    ctx.fillText(pn ? pn : tn, t.x, t.y-r-26);
+    if(pn) ctx.fillText(tn, t.x, t.y-r-14);
+    ctx.restore();
+  }
+
+  // hp bar
+  const frac = clamp(t.hp/t.def.hpMax, 0, 1);
+  ctx.save();
+  ctx.fillStyle="rgba(0,0,0,.35)";
+  ctx.fillRect(t.x-24, t.y+r+10, 48, 6);
+  ctx.fillStyle= frac>0.5 ? "rgba(82,255,154,.9)" : "rgba(255,90,106,.9)";
+  ctx.fillRect(t.x-24, t.y+r+10, 48*frac, 6);
+  ctx.restore();
+}
+
+function drawObjectivesWorld(env){
+  // bases
+  if(STATE.mode==="CAPTURE"){
+    for(const b of STATE.bases){
+      ctx.save();
+      ctx.globalAlpha=0.9;
+      ctx.strokeStyle = b.team==="YOU" ? "rgba(82,255,154,.85)" : "rgba(255,90,106,.85)";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke();
+      // capture progress ring
+      ctx.lineWidth=6;
+      ctx.globalAlpha=0.55;
+      ctx.beginPath();
+      ctx.arc(b.x,b.y,b.r+10, -Math.PI/2, -Math.PI/2 + Math.PI*2*b.cap);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // zones
+  if(STATE.mode==="DOM"){
+    for(const z of STATE.zones){
+      const col = z.owner==="YOU" ? "rgba(82,255,154,.85)" : z.owner==="ENEMY" ? "rgba(255,90,106,.85)" : "rgba(255,255,255,.55)";
+      ctx.save();
+      ctx.strokeStyle = col; ctx.lineWidth=3; ctx.globalAlpha=0.85;
+      ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,Math.PI*2); ctx.stroke();
+      // progress ring
+      ctx.globalAlpha=0.6; ctx.lineWidth=6;
+      const prog = (z.progress+1)/2; // [-1..1] -> [0..1]
+      ctx.beginPath(); ctx.arc(z.x,z.y,z.r+10, -Math.PI/2, -Math.PI/2 + Math.PI*2*prog);
+      ctx.stroke();
+
+      ctx.globalAlpha=0.9;
+      ctx.fillStyle="rgba(0,0,0,.30)";
+      ctx.fillRect(z.x-10, z.y-10, 20, 20);
+      ctx.fillStyle="rgba(255,255,255,.9)";
+      ctx.font="bold 14px system-ui";
+      ctx.textAlign="center";
+      ctx.fillText(z.id, z.x, z.y+5);
+      ctx.restore();
+    }
+  }
+}
+
+/* ===== Mini-map ===== */
+function drawMini(){
+  const mw = mcan.clientWidth, mh = mcan.clientHeight;
+  mctx.clearRect(0,0,mw,mh);
+  mctx.fillStyle="rgba(0,0,0,.22)";
+  mctx.fillRect(0,0,mw,mh);
+
+  const scaleX = mw / STATE.world.w;
+  const scaleY = mh / STATE.world.h;
+
+  // obstacles (tiny)
+  mctx.fillStyle="rgba(255,255,255,.12)";
+  for(const ob of STATE.obstacles){
+    mctx.fillRect(ob.x*scaleX, ob.y*scaleY, Math.max(1, ob.w*scaleX), Math.max(1, ob.h*scaleY));
+  }
+
+  // bases / zones hints
+  if(STATE.mode==="CAPTURE"){
+    for(const b of STATE.bases){
+      mctx.strokeStyle = b.team==="YOU" ? "rgba(82,255,154,.8)" : "rgba(255,90,106,.8)";
+      mctx.beginPath();
+      mctx.arc(b.x*scaleX, b.y*scaleY, b.r*scaleX, 0, Math.PI*2);
+      mctx.stroke();
+    }
+  }
+  if(STATE.mode==="DOM"){
+    for(const z of STATE.zones){
+      const col = z.owner==="YOU" ? "rgba(82,255,154,.8)" : z.owner==="ENEMY" ? "rgba(255,90,106,.8)" : "rgba(255,255,255,.6)";
+      mctx.strokeStyle=col;
+      mctx.beginPath();
+      mctx.arc(z.x*scaleX, z.y*scaleY, z.r*scaleX, 0, Math.PI*2);
+      mctx.stroke();
+    }
+  }
+
+  // tanks
+  for(const t of STATE.entities){
+    if(t.type!=="tank") continue;
+
+    // Radar: enemies only appear if spotted (close + LOS) by you or your allies
+    const vis = (t.team==="YOU") || isSpottedForTeam("YOU", t);
+    if(!vis) continue;
+
+    const x=t.x*scaleX, y=t.y*scaleY;
+    mctx.fillStyle = t.team==="YOU" ? "rgba(82,255,154,.95)" : "rgba(255,90,106,.95)";
+    mctx.globalAlpha = t.alive ? 1 : 0.35;
+    mctx.fillRect(x-2,y-2,4,4);
+    mctx.globalAlpha=1;
+  }
+
+  // camera rect
+  const cam = getCamera();
+  const vw = canvas.clientWidth, vh = canvas.clientHeight;
+  mctx.strokeStyle="rgba(255,255,255,.25)";
+  mctx.strokeRect(cam.x*scaleX, cam.y*scaleY, vw*scaleX, vh*scaleY);
+}
+
+/* ===== HUD ===== */
+function drawHUD(){
+  const p = STATE.player;
+  const hudTank = document.getElementById("hudTank");
+  const hudMeta = document.getElementById("hudMeta");
+  const hudMode = document.getElementById("hudMode");
+  const hudHP = document.getElementById("hudHP");
+  const hpBar = document.getElementById("hpBar");
+  const hudReload = document.getElementById("hudReload");
+  const rlBar = document.getElementById("rlBar");
+  const hudObj = document.getElementById("hudObj");
+  const hudYou = document.getElementById("hudYou");
+  const hudEnemies = document.getElementById("hudEnemies");
+  const hudTime = document.getElementById("hudTime");
+
+  if(!p){
+    hudTank.textContent = "—";
+    hudMeta.textContent = "Pick a tank and start.";
+    hudMode.textContent = "—";
+    hudHP.textContent = "—";
+    hpBar.style.width = "0%";
+    hudReload.textContent = "—";
+    rlBar.style.width = "0%";
+    hudObj.textContent = "—";
+    hudYou.textContent = "0";
+    hudEnemies.textContent = "0";
+    hudTime.textContent = "00:00";
+    return;
+  }
+
+  hudTank.textContent = p.def.name;
+  const tracked = (p.immobilizedUntil && now() < p.immobilizedUntil);
+  hudMeta.textContent = `Tier ${p.def.tier} • ${p.def.klass} • Shell ${p.def.shell} • Dmg x${(p.def.gunMul||1).toFixed(2)}${tracked ? " • TRACKED" : ""}`;
+  hudMode.textContent = STATE.mode;
+
+  const hpFrac = clamp(p.hp/p.def.hpMax, 0, 1);
+  hudHP.textContent = `${Math.max(0, Math.round(p.hp))} / ${p.def.hpMax}`;
+  hpBar.style.width = `${hpFrac*100}%`;
+
+  const curReload = reloadForTank(p.def);
+  const rlFrac = curReload ? clamp(1 - (p.reload/curReload), 0, 1) : 1;
+  hudReload.textContent = p.reload>0 ? `${Math.ceil(p.reload)} ms` : "READY";
+  rlBar.style.width = `${rlFrac*100}%`;
+
+  hudYou.textContent = Math.floor(STATE.scoreYou).toString();
+  hudEnemies.textContent = Math.floor(STATE.scoreEnemies).toString();
+
+  const mm = Math.floor(STATE.elapsed/60);
+  const ss = Math.floor(STATE.elapsed%60);
+  hudTime.textContent = `${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
+
+  // objective text
+  let obj = "";
+  if(STATE.mode==="TDM") obj = "Destroy all enemy tanks.";
+  if(STATE.mode==="RANKED") obj = "Hard AI. Survive and destroy all enemies.";
+  if(STATE.mode==="HISTORICAL") obj = "Era-locked tier match. Destroy all enemies.";
+  if(STATE.mode==="TRAINING") obj = "Sandbox. Practice movement & shooting (press R to respawn).";
+  if(STATE.mode==="FREEROAM") obj = "Explore the map freely.";
+  if(STATE.mode==="PVP1V1") obj = "Local 1v1: P1 (WASD + Mouse) vs P2 (IJKL move, U/O aim, P shoot, hold H auto-aim).";
+  if(STATE.mode==="CAPTURE") obj = "Capture the enemy base (stand inside their circle). Defend yours.";
+  if(STATE.mode==="DOM"){
+    const ownedY = STATE.zones.filter(z=>z.owner==="YOU").length;
+    const ownedE = STATE.zones.filter(z=>z.owner==="ENEMY").length;
+    obj = `Hold zones A/B/C to earn points. You: ${ownedY} • Enemy: ${ownedE} (First to 25)`;
+  }
+  hudObj.textContent = obj;
+}
+
+/* ===== Rounded rect polyfill-ish ===== */
+CanvasRenderingContext2D.prototype.roundRect = CanvasRenderingContext2D.prototype.roundRect || function(x,y,w,h,r){
+  const rr = Math.min(r, w/2, h/2);
+  this.beginPath();
+  this.moveTo(x+rr, y);
+  this.arcTo(x+w, y, x+w, y+h, rr);
+  this.arcTo(x+w, y+h, x, y+h, rr);
+  this.arcTo(x, y+h, x, y, rr);
+  this.arcTo(x, y, x+w, y, rr);
+  this.closePath();
+  return this;
+};
+
+
+// ===== Menu hooks =====
+window.addEventListener("load", ()=>{
+  initMenuElements();
+  mountGarageUI();
+  updateMenuCoins();
+  setUIMode("MENU");
+
+  if(menuPlayBtn) menuPlayBtn.addEventListener("click", ()=> beginBattle());
+  if(menuHowBtn) menuHowBtn.addEventListener("click", ()=> showHow());
+  if(toGarageBtn) toGarageBtn.addEventListener("click", ()=> { STATE.running=false; if(STATE.netEnabled){ netDisconnect(); STATE.netEnabled=false; } setUIMode("MENU"); updateMenuCoins(); });
+
+  document.addEventListener("keydown", (e)=>{
+    if(e.key==="Escape"){
+      // Toggle garage during battle
+      if(document.body.classList.contains("battle")){
+        STATE.running=false;
+        if(STATE.netEnabled){ netDisconnect(); STATE.netEnabled=false; }
+        setUIMode("MENU");
+        updateMenuCoins();
+        hideCenter();
+      }else{
+        hideCenter();
+      }
+    }
+  });
+
+  // If the old start button exists inside the mounted UI, repoint it to the loading flow.
+  const oldStart = document.getElementById("startBtn");
+  if(oldStart){
+    oldStart.textContent = "Start (Loading)";
+    oldStart.onclick = ()=> beginBattle();
+  }
+
+  // Keep menu coin label synced
+  const __oldRenderCoins = renderCoins;
+  renderCoins = function(){
+    __oldRenderCoins();
+    updateMenuCoins();
+  };
+});
+</script>
+
+<div id="hudMoney" style="position:fixed;top:12px;right:12px;z-index:9999;
+  background:rgba(0,0,0,.55);backdrop-filter: blur(6px);
+  border:1px solid rgba(255,255,255,.10);border-radius:14px;
+  padding:10px 12px;min-width:170px;text-align:right;
+  font:14px/1.2 system-ui,Segoe UI,Roboto,Arial;">
+  <div style="font-weight:800;letter-spacing:.3px;">💰 <span id="hudCoins">0</span></div>
+  <div style="font-size:11px;opacity:.85;margin-top:4px;">Win +50,000</div>
+</div>
+
+<div id="toast" style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  display:none;opacity:1;transition:opacity .18s ease;
+  background:rgba(0,0,0,.66);backdrop-filter: blur(6px);
+  border:1px solid rgba(255,255,255,.10);border-radius:14px;
+  padding:10px 14px;z-index:9999;color:#fff;
+  font:13px/1.25 system-ui,Segoe UI,Roboto,Arial; text-align:center; max-width:70vw;">
+</div>
+
+<div class="hudTopLeft" id="hudTopLeft">
+  <div style="font-weight:800; letter-spacing:.08em; text-transform:uppercase;">Battle</div>
+  <div style="margin-top:6px; opacity:.9;" id="battleInfo">—</div>
+  <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-start; align-items:center;">
+    <button class="ghostBtn" id="toGarageBtn">Garage (Esc)</button>
+  </div>
+</div>
+
+<div id="menuOverlay">
+  <div class="overlayCard">
+    <div style="display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;">
+      <div>
+        <div class="logo">USA TANK BATTLE <small>Garage • Matchmaking • Battle</small></div>
+        <div style="font-size:13px; opacity:.85; max-width:680px;">
+          Pick a tank, buy upgrades with coins, then jump into battle. Same-tier matchmaking is enabled.
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:900; font-size:18px;">💰 <span id="menuCoins">0</span></div>
+        <div style="font-size:12px; opacity:.8; margin-top:6px;">Win +50,000</div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div style="display:grid; grid-template-columns: 360px 1fr; gap:16px;">
+      <div>
+        <div style="font-size:12px; opacity:.8; margin-bottom:8px;">Garage</div>
+        <div style="background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.10); border-radius:18px; padding:12px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+            <button class="bigBtn" id="menuPlayBtn">BATTLE!</button>
+            <button class="ghostBtn" id="menuHowBtn">How to Play</button>
+          </div>
+          <div class="tip" id="menuTip">Tip: Use cover. Front armor has low pierce chance.</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:12px; opacity:.8; margin-bottom:8px;">Loadout & Match</div>
+        <div style="border-radius:18px; border:1px solid rgba(255,255,255,.10); overflow:hidden;">
+          <!-- We reuse the existing left panel UI but show it inside the menu -->
+          <div id="garageMount"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="overlayCard" style="max-width:760px;">
+    <div class="logo" style="font-size:20px;">Loading Battle…</div>
+    <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+      <div style="opacity:.9;" id="loadMapName">Map: —</div>
+      <div style="opacity:.75;" id="loadModeName">Mode: —</div>
+    </div>
+    <div class="sep"></div>
+    <div class="bar"><div id="loadBar"></div></div>
+    <div class="tip" id="loadTip">Tip: Light tanks reload faster. Heavies hit harder.</div>
+  </div>
+</div>
+
+<div id="countdownOverlay">
+  <div style="text-align:center;">
+    <div class="countNum" id="countNum">3</div>
+    <div class="countSub" id="countSub">Battle starts</div>
+  </div>
+</div>
+</body>
+</html>

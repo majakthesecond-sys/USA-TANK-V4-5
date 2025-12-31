@@ -1,0 +1,15 @@
+{
+  "name": "usa-tank-battle-online",
+  "version": "1.3.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
